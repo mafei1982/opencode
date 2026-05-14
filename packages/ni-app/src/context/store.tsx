@@ -57,7 +57,11 @@ export function NiStoreProvider(props: ParentProps<{ directory: string }>) {
     parts: {},
     session_status: {},
     part_text_accum_delta: {},
-    providers: {},
+    providers: {
+      all: [],
+      default: {},
+      connected: [],
+    },
     providerAuth: {},
     agents: [],
     defaultAgent: undefined,

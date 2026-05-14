@@ -59,7 +59,7 @@ export function SessionList(props: {
                 </ContextMenu.Trigger>
                 <ContextMenu.Content>
                   <ContextMenu.Item onSelect={() => props.onDelete(session.id)}>
-                    <Icon name="delete" class="w-4 h-4" />
+                    <Icon name="trash" class="w-4 h-4" />
                     Delete
                   </ContextMenu.Item>
                 </ContextMenu.Content>

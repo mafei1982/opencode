@@ -84,17 +84,17 @@ export default function MainPage() {
             <span class="text-14-medium text-text-strong">NI OpenCode</span>
           </div>
           <div class="flex items-center gap-1">
-            <Tooltip placement="bottom" title="Settings">
+            <Tooltip placement="bottom" value="Settings">
               <IconButton
                 icon="settings-gear"
-                size="sm"
+                size="small"
                 onClick={() => dialog.show(() => <NiSettingsDialog />)}
               />
             </Tooltip>
-            <Tooltip placement="bottom" title="New Session">
+            <Tooltip placement="bottom" value="New Session">
               <IconButton
                 icon="new-session"
-                size="sm"
+                size="small"
                 onClick={handleNewSession}
               />
             </Tooltip>
@@ -127,7 +127,7 @@ export default function MainPage() {
                 class="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-info-base text-text-info-base text-14-medium hover:bg-surface-info-base-hover transition-colors"
                 onClick={handleNewSession}
               >
-                <Icon name="edit-line" class="w-4 h-4" />
+                <Icon name="edit" class="w-4 h-4" />
                 New Session
               </button>
             </div>

@@ -114,8 +114,8 @@ function ProvidersTab() {
                     </span>
                   </div>
                   <Show when={provider.source !== "env"}>
-                    <Button
-                      size="sm"
+                      <Button
+                        size="small"
                       variant="ghost"
                       class="opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => void handleDisconnect(provider.id)}
@@ -150,13 +150,13 @@ function ProvidersTab() {
                     <Show
                       when={connectingProvider() === provider.id}
                       fallback={
-                        <Button size="sm" onClick={() => setConnectingProvider(provider.id)}>
+                        <Button size="small" onClick={() => setConnectingProvider(provider.id)}>
                           Connect
                         </Button>
                       }
                     >
                       <Button
-                        size="sm"
+                        size="small"
                         variant="ghost"
                         onClick={() => {
                           setConnectingProvider(null)
@@ -185,7 +185,7 @@ function ProvidersTab() {
                         autofocus
                       />
                       <Button
-                        size="sm"
+                        size="small"
                         disabled={!apiKey().trim() || saving()}
                         onClick={() => void handleConnect(provider.id)}
                       >

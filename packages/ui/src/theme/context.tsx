@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import { createEffect, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { makeEventListener } from "@solid-primitives/event-listener"
@@ -186,7 +188,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       if (hit) return Promise.resolve(hit)
       const pending = loads.get(next)
       if (pending) return pending
-      const file = getFiles()[`./themes/${next}.json`]
+      const file = getFiles()?.[`./themes/${next}.json`]
       if (!file) return Promise.resolve(undefined)
       const task = file()
         .then((mod) => {

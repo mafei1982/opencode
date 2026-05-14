@@ -59,19 +59,19 @@ export function ChatInput(props: {
         <Show
           when={!working()}
           fallback={
-            <Tooltip placement="top" title="Stop (Esc)">
+            <Tooltip placement="top" value="Stop (Esc)">
               <IconButton
                 icon="stop"
-                size="md"
+                size="normal"
                 onClick={() => void props.onAbort()}
               />
             </Tooltip>
           }
         >
-          <Tooltip placement="top" title="Send (Enter)">
+          <Tooltip placement="top" value="Send (Enter)">
             <IconButton
               icon="arrow-up"
-              size="md"
+              size="normal"
               disabled={blank()}
               onClick={() => void handleSend()}
             />
