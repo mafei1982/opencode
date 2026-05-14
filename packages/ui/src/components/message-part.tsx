@@ -658,7 +658,7 @@ export function AssistantParts(props: {
 
                 return (
                   <Show when={parts().length > 0}>
-                    <ContextToolGroup parts={parts()} busy={busy()} />
+                    <ContextToolGroup parts={parts()} busy={busy()} working={props.working} />
                   </Show>
                 )
               })()}
@@ -904,12 +904,14 @@ export function AssistantMessageDisplay(props: {
   )
 }
 
-function ContextToolGroup(props: { parts: ToolPart[]; busy?: boolean }) {
+function ContextToolGroup(props: { parts: ToolPart[]; busy?: boolean; working?: boolean }) {
   const i18n = useI18n()
   const [open, setOpen] = createSignal(false)
   const pending = createMemo(
     () =>
-      !!props.busy || props.parts.some((part) => part.state.status === "pending" || part.state.status === "running"),
+      !!props.busy ||
+      (!!props.working &&
+        props.parts.some((part) => part.state.status === "pending" || part.state.status === "running")),
   )
   const summary = createMemo(() => contextToolSummary(props.parts))
 
@@ -1057,7 +1059,18 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
   const handleCopy = async () => {
     const content = text()
     if (!content) return
-    await navigator.clipboard.writeText(content)
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(content)
+    } else {
+      const textarea = document.createElement("textarea")
+      textarea.value = content
+      textarea.style.position = "fixed"
+      textarea.style.opacity = "0"
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textarea)
+    }
     setState("copied", true)
     setTimeout(() => setState("copied", false), 2000)
   }

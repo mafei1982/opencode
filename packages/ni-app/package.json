@@ -1,0 +1,48 @@
+{
+  "name": "@opencode-ai/ni-app",
+  "version": "0.1.0",
+  "description": "NI OpenCode - Simplified chat UI",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./vite": "./vite.js",
+    "./index.css": "./src/index.css",
+    "./utils/workspace": "./src/utils/workspace.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo -b",
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tsconfig/bun": "1.0.9",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-solid": "catalog:"
+  },
+  "dependencies": {
+    "@kobalte/core": "catalog:",
+    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/ui": "workspace:*",
+    "@opencode-ai/core": "workspace:*",
+    "@solid-primitives/event-bus": "1.1.2",
+    "@solid-primitives/event-listener": "2.4.5",
+    "@solid-primitives/storage": "catalog:",
+    "@solidjs/meta": "catalog:",
+    "@solidjs/router": "catalog:",
+    "@tanstack/solid-query": "5.91.4",
+    "marked": "catalog:",
+    "marked-shiki": "catalog:",
+    "shiki": "catalog:",
+    "solid-js": "catalog:",
+    "tailwindcss": "catalog:",
+    "zod": "catalog:"
+  }
+}

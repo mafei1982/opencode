@@ -91,6 +91,7 @@ export default defineConfig({
         input: {
           main: "src/renderer/index.html",
           loading: "src/renderer/loading.html",
+          ni: "src/renderer/ni-index.html",
         },
       },
     },
