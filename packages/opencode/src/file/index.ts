@@ -281,6 +281,13 @@ const isBinaryByExtension = (file: string) => binary.has(ext(file))
 const isImage = (mimeType: string) => mimeType.startsWith("image/")
 const getImageMimeType = (file: string) => mime[ext(file)] || "image/" + ext(file)
 
+const previewableDocument = new Set(["docx", "pdf"])
+const previewableDocumentMime: Record<string, string> = {
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pdf: "application/pdf",
+}
+const isPreviewableDocument = (file: string) => previewableDocument.has(ext(file))
+
 function shouldEncode(mimeType: string) {
   const type = mimeType.toLowerCase()
   log.debug("shouldEncode", { type })
@@ -315,6 +322,10 @@ export interface Interface {
   readonly init: () => Effect.Effect<void>
   readonly status: () => Effect.Effect<Info[]>
   readonly read: (file: string) => Effect.Effect<Content>
+  readonly write: (file: string, content: string) => Effect.Effect<Content>
+  readonly rename: (from: string, to: string) => Effect.Effect<void>
+  readonly remove: (file: string) => Effect.Effect<void>
+  readonly copy: (from: string, to: string) => Effect.Effect<void>
   readonly list: (dir?: string) => Effect.Effect<Node[]>
   readonly search: (input: {
     query: string
@@ -518,6 +529,20 @@ export const layer = Layer.effect(
         return { type: "text" as const, content: "" }
       }
 
+      if (isPreviewableDocument(file)) {
+        const exists = yield* appFs.existsSafe(full)
+        if (exists) {
+          const bytes = yield* appFs.readFile(full).pipe(Effect.catch(() => Effect.succeed(new Uint8Array())))
+          return {
+            type: "text" as const,
+            content: Buffer.from(bytes).toString("base64"),
+            mimeType: previewableDocumentMime[ext(file)] ?? "application/octet-stream",
+            encoding: "base64" as const,
+          }
+        }
+        return { type: "text" as const, content: "" }
+      }
+
       const knownText = isTextByExtension(file) || isTextByName(file)
 
       if (isBinaryByExtension(file) && !knownText) return { type: "binary" as const, content: "" }
@@ -562,6 +587,50 @@ export const layer = Layer.effect(
       }
 
       return { type: "text" as const, content }
+    })
+
+    const write: Interface["write"] = Effect.fn("File.write")(function* (file: string, content: string) {
+      using _ = log.time("write", { file })
+      const ctx = yield* InstanceState.context
+      const full = path.join(ctx.directory, file)
+
+      if (!containsPath(full, ctx)) {
+        throw new Error("Access denied: path escapes project directory")
+      }
+
+      yield* appFs.writeFileString(full, content).pipe(Effect.orDie)
+      return yield* read(file)
+    })
+
+    const rename: Interface["rename"] = Effect.fn("File.rename")(function* (from: string, to: string) {
+      const ctx = yield* InstanceState.context
+      const fullFrom = path.join(ctx.directory, from)
+      const fullTo = path.join(ctx.directory, to)
+
+      if (!containsPath(fullFrom, ctx)) throw new Error("Access denied: source path escapes project directory")
+      if (!containsPath(fullTo, ctx)) throw new Error("Access denied: destination path escapes project directory")
+
+      yield* appFs.rename(fullFrom, fullTo).pipe(Effect.orDie)
+    })
+
+    const remove: Interface["remove"] = Effect.fn("File.remove")(function* (file: string) {
+      const ctx = yield* InstanceState.context
+      const full = path.join(ctx.directory, file)
+
+      if (!containsPath(full, ctx)) throw new Error("Access denied: path escapes project directory")
+
+      yield* appFs.remove(full, { recursive: true }).pipe(Effect.orDie)
+    })
+
+    const copy: Interface["copy"] = Effect.fn("File.copy")(function* (from: string, to: string) {
+      const ctx = yield* InstanceState.context
+      const fullFrom = path.join(ctx.directory, from)
+      const fullTo = path.join(ctx.directory, to)
+
+      if (!containsPath(fullFrom, ctx)) throw new Error("Access denied: source path escapes project directory")
+      if (!containsPath(fullTo, ctx)) throw new Error("Access denied: destination path escapes project directory")
+
+      yield* appFs.copy(fullFrom, fullTo).pipe(Effect.orDie)
     })
 
     const list = Effect.fn("File.list")(function* (dir?: string) {
@@ -638,7 +707,7 @@ export const layer = Layer.effect(
     })
 
     log.info("init")
-    return Service.of({ init, status, read, list, search })
+    return Service.of({ init, status, read, write, rename, remove, copy, list, search })
   }),
 )
 

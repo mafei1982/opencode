@@ -64,6 +64,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const tabs = layout.tabs(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
 
     const inflight = new Map<string, Promise<void>>()
+    const [dirtyFiles, setDirtyFiles] = createStore<Record<string, boolean>>({})
     const [store, setStore] = createStore<{
       file: Record<string, FileState>
     }>({
@@ -253,6 +254,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       tree: {
         list: tree.listDir,
         refresh: (input: string) => tree.listDir(input, { force: true }),
+        refreshAll: tree.refreshLoaded,
         state: tree.dirState,
         children: tree.children,
         expand: tree.expandDir,
@@ -267,6 +269,27 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       },
       get,
       load,
+      write: async (input: string, content: string) => {
+        const file = path.normalize(input)
+        if (!file) return
+        const params = new URLSearchParams({ path: file, directory: scope() })
+        const res = await fetch(`${sdk.url}/file/write?${params}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        })
+        if (!res.ok) throw new Error(`Failed to write file: ${res.statusText}`)
+        const data = await res.json()
+        setStore(
+          "file",
+          file,
+          produce((draft) => {
+            draft.loaded = true
+            draft.loading = false
+            draft.content = data
+          }),
+        )
+      },
       scrollTop,
       scrollLeft,
       setScrollTop,
@@ -275,6 +298,60 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       setSelectedLines,
       searchFiles: (query: string) => search(query, "false"),
       searchFilesAndDirectories: (query: string) => search(query, "true"),
+      isDirty: (input: string) => {
+        const file = path.normalize(input)
+        return file ? dirtyFiles[file] ?? false : false
+      },
+      setDirty: (input: string, dirty: boolean) => {
+        const file = path.normalize(input)
+        if (!file) return
+        setDirtyFiles(file, dirty)
+      },
+      rename: async (from: string, to: string) => {
+        const fromPath = path.normalize(from)
+        const toPath = path.normalize(to)
+        if (!fromPath || !toPath) return
+        const params = new URLSearchParams({ path: fromPath, directory: scope() })
+        const res = await fetch(`${sdk.url}/file/rename?${params}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: toPath }),
+        })
+        if (!res.ok) throw new Error(`Failed to rename: ${res.statusText}`)
+        const parentSep = Math.max(fromPath.lastIndexOf("/"), fromPath.lastIndexOf("\\"))
+        const parent = parentSep === -1 ? "" : fromPath.slice(0, parentSep)
+        const toSep = Math.max(toPath.lastIndexOf("/"), toPath.lastIndexOf("\\"))
+        const toParent = toSep === -1 ? "" : toPath.slice(0, toSep)
+        void tree.listDir(parent, { force: true })
+        if (toParent !== parent) void tree.listDir(toParent, { force: true })
+      },
+      remove: async (input: string) => {
+        const file = path.normalize(input)
+        if (!file) return
+        const params = new URLSearchParams({ path: file, directory: scope() })
+        const res = await fetch(`${sdk.url}/file/remove?${params}`, {
+          method: "DELETE",
+        })
+        if (!res.ok) throw new Error(`Failed to delete: ${res.statusText}`)
+        const sep = Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\"))
+        const parent = sep === -1 ? "" : file.slice(0, sep)
+        void tree.listDir(parent, { force: true })
+      },
+      copy: async (from: string, to: string) => {
+        const fromPath = path.normalize(from)
+        const toPath = path.normalize(to)
+        if (!fromPath || !toPath) return
+        const params = new URLSearchParams({ path: fromPath, directory: scope() })
+        const res = await fetch(`${sdk.url}/file/copy?${params}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: toPath }),
+        })
+        if (!res.ok) throw new Error(`Failed to copy: ${res.statusText}`)
+        const toSep = Math.max(toPath.lastIndexOf("/"), toPath.lastIndexOf("\\"))
+        const toParent = toSep === -1 ? "" : toPath.slice(0, toSep)
+        void tree.listDir(toParent, { force: true })
+      },
     }
   },
 })

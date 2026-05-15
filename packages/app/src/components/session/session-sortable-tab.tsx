@@ -10,7 +10,7 @@ import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useCommand } from "@/context/command"
 
-export function FileVisual(props: { path: string; active?: boolean }): JSX.Element {
+export function FileVisual(props: { path: string; active?: boolean; dirty?: boolean }): JSX.Element {
   return (
     <div class="flex items-center gap-x-1.5 min-w-0">
       <Show
@@ -22,7 +22,12 @@ export function FileVisual(props: { path: string; active?: boolean }): JSX.Eleme
           <FileIcon node={{ path: props.path, type: "file" }} mono class="absolute inset-0 size-4 tab-fileicon-mono" />
         </span>
       </Show>
-      <span class="text-14-medium truncate">{getFilename(props.path)}</span>
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="text-14-medium truncate">{getFilename(props.path)}</span>
+        <Show when={props.dirty}>
+          <span class="size-2 rounded-full bg-text-strong shrink-0" aria-hidden="true" />
+        </Show>
+      </div>
     </div>
   )
 }
@@ -33,11 +38,24 @@ export function SortableTab(props: { tab: string; onTabClose: (tab: string) => v
   const command = useCommand()
   const sortable = createSortable(props.tab)
   const path = createMemo(() => file.pathFromTab(props.tab))
-  const content = createMemo(() => {
-    const value = path()
-    if (!value) return
-    return <FileVisual path={value} />
+  const dirty = createMemo(() => {
+    const p = path()
+    return p ? file.isDirty(p) : false
   })
+
+  const handleClose = () => {
+    if (!dirty()) {
+      const p = path()
+      if (p) file.setDirty(p, false)
+      props.onTabClose(props.tab)
+      return
+    }
+    if (!window.confirm("This file has unsaved changes. Close without saving?")) return
+    const p = path()
+    if (p) file.setDirty(p, false)
+    props.onTabClose(props.tab)
+  }
+
   return (
     <div use:sortable class="h-full flex items-center" classList={{ "opacity-0": sortable.isActiveDraggable }}>
       <div class="relative">
@@ -54,15 +72,17 @@ export function SortableTab(props: { tab: string; onTabClose: (tab: string) => v
                 icon="close-small"
                 variant="ghost"
                 class="h-5 w-5"
-                onClick={() => props.onTabClose(props.tab)}
+                onClick={handleClose}
                 aria-label={language.t("common.closeTab")}
               />
             </TooltipKeybind>
           }
           hideCloseButton
-          onMiddleClick={() => props.onTabClose(props.tab)}
+          onMiddleClick={handleClose}
         >
-          <Show when={content()}>{(value) => value()}</Show>
+          <div class="flex items-center min-w-0">
+            <Show when={path()}>{(value) => <FileVisual path={value()} dirty={dirty()} />}</Show>
+          </div>
         </Tabs.Trigger>
       </div>
     </div>

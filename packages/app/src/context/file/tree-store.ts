@@ -157,6 +157,12 @@ export function createFileTreeStore(options: TreeStoreOptions) {
     return out
   }
 
+  const refreshLoaded = () => {
+    for (const dir of Object.keys(tree.dir)) {
+      if (tree.dir[dir]?.loaded) void listDir(dir, { force: true })
+    }
+  }
+
   return {
     listDir,
     expandDir,
@@ -165,6 +171,7 @@ export function createFileTreeStore(options: TreeStoreOptions) {
     children,
     node: (path: string) => tree.node[path],
     isLoaded: (path: string) => Boolean(tree.dir[path]?.loaded),
+    refreshLoaded,
     reset,
   }
 }
