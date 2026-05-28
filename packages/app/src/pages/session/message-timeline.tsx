@@ -1099,6 +1099,12 @@ export function MessageTimeline(props: {
                         showReasoningSummaries={settings.general.showReasoningSummaries()}
                         shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
                         editToolDefaultOpen={settings.general.editToolPartsExpanded()}
+                        readFile={(path) =>
+                          sdk.client.file
+                            .read({ path })
+                            .then((x) => x.data)
+                            .catch(() => undefined)
+                        }
                         classes={{
                           root: "min-w-0 w-full relative",
                           content: "flex flex-col justify-between !overflow-visible",

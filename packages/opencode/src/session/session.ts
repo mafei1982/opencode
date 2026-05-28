@@ -22,6 +22,7 @@ import { SyncEvent } from "../sync"
 import type { SQL } from "drizzle-orm"
 import { PartTable, SessionTable } from "./session.sql"
 import { ProjectTable } from "../project/project.sql"
+import { AppFileSystem } from "@opencode-ai/core/filesystem"
 import { Storage } from "@/storage/storage"
 import * as Log from "@opencode-ai/core/util/log"
 import { MessageV2 } from "./message-v2"
@@ -566,7 +567,13 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
 
     const list = Effect.fn("Session.list")(function* (input?: ListInput) {
       const ctx = yield* InstanceState.context
-      return Array.from(listByProject({ projectID: ctx.project.id, ...input }))
+      return Array.from(
+        listByProject({
+          projectID: ctx.project.id,
+          ...input,
+          directory: input?.directory ? AppFileSystem.resolve(input.directory) : input?.directory,
+        }),
+      )
     })
 
     const children = Effect.fn("Session.children")(function* (parentID: SessionID) {
@@ -901,7 +908,7 @@ export function* listGlobal(input?: {
   const conditions: SQL[] = []
 
   if (input?.directory) {
-    conditions.push(eq(SessionTable.directory, input.directory))
+    conditions.push(eq(SessionTable.directory, AppFileSystem.resolve(input.directory)))
   }
   if (input?.roots) {
     conditions.push(isNull(SessionTable.parent_id))

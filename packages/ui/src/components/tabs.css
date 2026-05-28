@@ -11,9 +11,48 @@
   background-color: var(--background-stronger);
   overflow: clip;
 
+  [data-slot="tabs-list-container"] {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  [data-slot="tabs-scroll-button"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 48px;
+    flex-shrink: 0;
+    border: none;
+    background-color: var(--background-base);
+    color: var(--icon-base);
+    cursor: pointer;
+    z-index: 2;
+    border-bottom: 1px solid var(--border-weak-base);
+    transition: color 120ms ease, background-color 120ms ease;
+
+    &:hover {
+      color: var(--icon-strong-base);
+      background-color: var(--surface-base-hover);
+    }
+
+    &[data-direction="left"] {
+      border-right: 1px solid var(--border-weak-base);
+    }
+
+    &[data-direction="right"] {
+      border-left: 1px solid var(--border-weak-base);
+    }
+  }
+
   [data-slot="tabs-list"] {
     height: 48px;
     width: 100%;
+    min-width: 0;
+    flex: 1;
     position: relative;
     display: flex;
     align-items: center;
@@ -435,6 +474,16 @@
   &[data-orientation="vertical"] {
     flex-direction: row;
 
+    [data-slot="tabs-list-container"] {
+      flex-direction: column;
+      width: auto;
+      height: 100%;
+    }
+
+    [data-slot="tabs-scroll-button"] {
+      display: none;
+    }
+
     [data-slot="tabs-list"] {
       flex-direction: column;
       width: auto;
@@ -591,6 +640,26 @@
 
       [data-slot="tabs-content"] {
         background-color: var(--surface-stronger-non-alpha);
+      }
+
+      .settings-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: var(--icon-weak-base) transparent;
+
+        &::-webkit-scrollbar {
+          display: block;
+          width: 6px;
+        }
+        &::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        &::-webkit-scrollbar-thumb {
+          background: var(--icon-weak-base);
+          border-radius: 2px;
+        }
+        &::-webkit-scrollbar-thumb:hover {
+          background: var(--icon-base);
+        }
       }
     }
   }

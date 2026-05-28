@@ -1,6 +1,6 @@
 import type { FileContent } from "@opencode-ai/sdk/v2"
 
-export type MediaKind = "image" | "audio" | "svg"
+export type MediaKind = "image" | "audio" | "svg" | "docx" | "pdf"
 
 const imageExtensions = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "ico", "tif", "tiff", "heic"])
 const audioExtensions = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"])
@@ -36,6 +36,8 @@ export function fileExtension(path: string | undefined) {
 export function mediaKindFromPath(path: string | undefined): MediaKind | undefined {
   const ext = fileExtension(path)
   if (ext === "svg") return "svg"
+  if (ext === "docx") return "docx"
+  if (ext === "pdf") return "pdf"
   if (imageExtensions.has(ext)) return "image"
   if (audioExtensions.has(ext)) return "audio"
 }
@@ -100,6 +102,26 @@ export function svgTextFromValue(value: MediaValue) {
   if (mime !== "image/svg+xml") return
   if (record.encoding === "base64") return decodeBase64Utf8(record.content)
   return record.content
+}
+
+export function docxArrayBufferFromValue(value: MediaValue): ArrayBuffer | undefined {
+  const record = mediaRecord(value)
+  if (!record || typeof record.content !== "string") return
+  if (record.encoding !== "base64") return
+  const raw = atob(record.content)
+  const bytes = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+  return bytes.buffer
+}
+
+export function pdfArrayBufferFromValue(value: MediaValue): ArrayBuffer | undefined {
+  const record = mediaRecord(value)
+  if (!record || typeof record.content !== "string") return
+  if (record.encoding !== "base64") return
+  const raw = atob(record.content)
+  const bytes = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+  return bytes.buffer
 }
 
 export function hasMediaValue(value: MediaValue) {

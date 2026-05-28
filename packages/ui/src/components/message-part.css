@@ -130,8 +130,9 @@
     white-space: pre-wrap;
     word-break: break-word;
     overflow: hidden;
-    background: var(--surface-base);
-    border: 1px solid var(--border-weak-base);
+    background: var(--surface-user-message, var(--surface-base));
+    border: 1px solid var(--border-user-message, var(--border-weak-base));
+    color: var(--text-user-message, var(--text-strong));
     padding: 8px 12px;
     border-radius: 6px;
 

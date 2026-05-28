@@ -1,12 +1,18 @@
 import type { FileContent } from "@opencode-ai/sdk/v2"
-import { createEffect, createMemo, createResource, Match, on, Show, Switch, type JSX } from "solid-js"
+import DOMPurify from "dompurify"
+import { createEffect, createMemo, createResource, createSignal, Match, on, Show, Switch, type JSX } from "solid-js"
 import { useI18n } from "../context/i18n"
+
+// Preload heavy libraries at module level to avoid main-thread jank on first use
+const mammothModule = import("mammoth")
 import {
   dataUrlFromMediaValue,
+  docxArrayBufferFromValue,
   hasMediaValue,
   isBinaryContent,
   mediaKindFromPath,
   normalizeMimeType,
+  pdfArrayBufferFromValue,
   svgTextFromValue,
 } from "../pierre/media"
 
@@ -26,6 +32,28 @@ function mediaValue(cfg: FileMediaOptions, mode: "image" | "audio") {
   if (cfg.current !== undefined) return cfg.current
   if (mode === "image") return cfg.after ?? cfg.before
   return cfg.after ?? cfg.before
+}
+
+async function renderPdf(buffer: ArrayBuffer) {
+  const pdfjsLib = await import("pdfjs-dist")
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url,
+  ).toString()
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise
+  const pages: string[] = []
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i)
+    const scale = 1.5
+    const viewport = page.getViewport({ scale })
+    const canvas = document.createElement("canvas")
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext("2d")!
+    await page.render({ canvas, canvasContext: ctx, viewport }).promise
+    pages.push(canvas.toDataURL())
+  }
+  return pages
 }
 
 export function FileMedia(props: { media?: FileMediaOptions; fallback: () => JSX.Element }) {
@@ -145,6 +173,99 @@ export function FileMedia(props: { media?: FileMediaOptions; fallback: () => JSX
     return [media.path, media.current] as const
   })
 
+  const docxBuffer = createMemo(() => {
+    const media = cfg()
+    if (!media || kind() !== "docx") return
+    return docxArrayBufferFromValue(media.current as any)
+  })
+
+  const docxRequest = createMemo(() => {
+    const media = cfg()
+    if (!media || kind() !== "docx") return
+    if (docxBuffer()) return
+    if (!media.path || !media.readFile) return
+    return { path: media.path, readFile: media.readFile }
+  })
+
+  const [docxHtml, setDocxHtml] = createSignal<string>()
+  const [docxLoading, setDocxLoading] = createSignal(false)
+  const [docxError, setDocxError] = createSignal<unknown>()
+
+  createEffect(() => {
+    const local = docxBuffer()
+    const req = docxRequest()
+    const input = local ?? undefined
+    if (input) {
+      setDocxLoading(true)
+      setDocxError(undefined)
+      mammothModule
+        .then((mammoth) => mammoth.convertToHtml({ arrayBuffer: input }))
+        .then((result) => setDocxHtml(DOMPurify.sanitize(result.value)))
+        .catch(setDocxError)
+        .finally(() => setDocxLoading(false))
+      return
+    }
+    if (!req) return
+    setDocxLoading(true)
+    setDocxError(undefined)
+    req
+      .readFile(req.path)
+      .then((result) => {
+        const buffer = docxArrayBufferFromValue(result as any)
+        if (!buffer) throw new Error("Failed to decode docx")
+        return mammothModule.then((mammoth) => mammoth.convertToHtml({ arrayBuffer: buffer }))
+      })
+      .then((result) => setDocxHtml(DOMPurify.sanitize(result.value)))
+      .catch(setDocxError)
+      .finally(() => setDocxLoading(false))
+  })
+
+  const pdfBuffer = createMemo(() => {
+    const media = cfg()
+    if (!media || kind() !== "pdf") return
+    return pdfArrayBufferFromValue(media.current as any)
+  })
+
+  const pdfRequest = createMemo(() => {
+    const media = cfg()
+    if (!media || kind() !== "pdf") return
+    if (pdfBuffer()) return
+    if (!media.path || !media.readFile) return
+    return { path: media.path, readFile: media.readFile }
+  })
+
+  const [pdfPages, setPdfPages] = createSignal<string[]>()
+  const [pdfLoading, setPdfLoading] = createSignal(false)
+  const [pdfError, setPdfError] = createSignal<unknown>()
+
+  createEffect(() => {
+    const local = pdfBuffer()
+    const req = pdfRequest()
+    const input = local ?? undefined
+    if (input) {
+      setPdfLoading(true)
+      setPdfError(undefined)
+      renderPdf(input)
+        .then(setPdfPages)
+        .catch(setPdfError)
+        .finally(() => setPdfLoading(false))
+      return
+    }
+    if (!req) return
+    setPdfLoading(true)
+    setPdfError(undefined)
+    req
+      .readFile(req.path)
+      .then((result) => {
+        const buffer = pdfArrayBufferFromValue(result as any)
+        if (!buffer) throw new Error("Failed to decode PDF")
+        return renderPdf(buffer)
+      })
+      .then(setPdfPages)
+      .catch(setPdfError)
+      .finally(() => setPdfLoading(false))
+  })
+
   createEffect(
     on(
       svgInvalid,
@@ -246,6 +367,60 @@ export function FileMedia(props: { media?: FileMediaOptions; fallback: () => JSX
             </div>
           )
         })()}
+      </Match>
+      <Match when={kind() === "docx"}>
+        <Switch>
+          <Match when={docxLoading()}>
+            <div class="flex min-h-40 items-center justify-center px-6 py-4 text-center text-text-weak">
+              {i18n.t("common.loading")}...
+            </div>
+          </Match>
+          <Match when={docxError()}>
+            <div class="flex min-h-40 items-center justify-center px-6 py-4 text-center text-text-weak">
+              Failed to load document preview
+            </div>
+          </Match>
+          <Match when={docxHtml()}>
+            {(html) => <div class="docx-preview px-6 py-4 text-text-strong" innerHTML={html()} />}
+          </Match>
+          <Match when={!docxBuffer() && !docxRequest()}>
+            <div class="flex min-h-40 items-center justify-center px-6 py-4 text-center text-text-weak">
+              Document preview unavailable
+            </div>
+          </Match>
+        </Switch>
+      </Match>
+      <Match when={kind() === "pdf"}>
+        <Switch>
+          <Match when={pdfLoading()}>
+            <div class="flex min-h-40 items-center justify-center px-6 py-4 text-center text-text-weak">
+              {i18n.t("common.loading")}...
+            </div>
+          </Match>
+          <Match when={pdfError()}>
+            <div class="flex min-h-40 items-center justify-center px-6 py-4 text-center text-text-weak">
+              Failed to load PDF preview
+            </div>
+          </Match>
+          <Match when={pdfPages()}>
+            {(pages) => (
+              <div class="flex flex-col items-center gap-4 px-6 py-4 bg-background-stronger">
+                {pages().map((src) => (
+                  <img
+                    src={src}
+                    class="max-w-full rounded border border-border-weak-base bg-background-base shadow-sm"
+                    onLoad={onLoad}
+                  />
+                ))}
+              </div>
+            )}
+          </Match>
+          <Match when={!pdfBuffer() && !pdfRequest()}>
+            <div class="flex min-h-40 items-center justify-center px-6 py-4 text-center text-text-weak">
+              PDF preview unavailable
+            </div>
+          </Match>
+        </Switch>
       </Match>
       <Match when={isBinary()}>
         <div class="flex min-h-56 flex-col items-center justify-center gap-2 px-6 py-10 text-center">

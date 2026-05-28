@@ -21,6 +21,9 @@ const sentry =
 
 export default defineConfig({
   plugins: [desktopPlugin, sentry] as any,
+  optimizeDeps: {
+    include: ["mammoth", "dompurify", "pdfjs-dist"],
+  },
   server: {
     host: "0.0.0.0",
     allowedHosts: true,

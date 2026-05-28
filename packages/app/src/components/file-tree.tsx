@@ -1,11 +1,13 @@
 import { useFile } from "@/context/file"
 import { encodeFilePath } from "@/context/file/path"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
+import { ContextMenu } from "@opencode-ai/ui/context-menu"
 import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Icon } from "@opencode-ai/ui/icon"
 import {
   createEffect,
   createMemo,
+  createSignal,
   For,
   Match,
   on,
@@ -190,6 +192,59 @@ const FileTreeNode = (
   )
 }
 
+function InlineRenameInput(props: {
+  node: FileNode
+  level: number
+  onCommit: (newName: string) => void
+  onCancel: () => void
+}) {
+  let inputRef!: HTMLInputElement
+  let committed = false
+
+  const commit = () => {
+    if (committed) return
+    committed = true
+    const value = inputRef.value.trim()
+    if (value && value !== props.node.name) {
+      props.onCommit(value)
+    } else {
+      props.onCancel()
+    }
+  }
+
+  return (
+    <div
+      class="w-full h-6 flex items-center rounded-md px-1.5"
+      style={`padding-left: ${Math.max(0, 8 + props.level * 12 - (props.node.type === "file" ? 0 : 4))}px`}
+    >
+      <input
+        ref={(el) => {
+          inputRef = el
+          requestAnimationFrame(() => {
+            el.focus()
+            const dotIdx = el.value.lastIndexOf(".")
+            el.setSelectionRange(0, dotIdx > 0 ? dotIdx : el.value.length)
+          })
+        }}
+        class="flex-1 min-w-0 h-5 px-1 text-12-medium bg-surface-raised-base border border-border-base rounded outline-none focus:border-border-focus text-text-strong"
+        value={props.node.name}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            commit()
+          }
+          if (e.key === "Escape") {
+            e.preventDefault()
+            committed = true
+            props.onCancel()
+          }
+        }}
+        onFocusOut={commit}
+      />
+    </div>
+  )
+}
+
 export default function FileTree(props: {
   path: string
   class?: string
@@ -201,6 +256,10 @@ export default function FileTree(props: {
   kinds?: ReadonlyMap<string, Kind>
   draggable?: boolean
   onFileClick?: (file: FileNode) => void
+  onRename?: (node: FileNode, newName: string) => void
+  onDelete?: (node: FileNode) => void
+  onCopy?: (node: FileNode) => void
+  onReveal?: (node: FileNode) => void
 
   _filter?: Filter
   _marks?: Set<string>
@@ -383,6 +442,39 @@ export default function FileTree(props: {
     return out
   })
 
+  const [renamingPath, setRenamingPath] = createSignal<string>()
+
+  const hasContextMenu = () =>
+    !!(props.onRename || props.onDelete || props.onCopy || props.onReveal)
+
+  const contextMenuItems = (node: FileNode) => (
+    <ContextMenu.Portal>
+      <ContextMenu.Content>
+        <Show when={props.onRename}>
+          <ContextMenu.Item onSelect={() => setRenamingPath(node.path)}>
+            <ContextMenu.ItemLabel>Rename</ContextMenu.ItemLabel>
+          </ContextMenu.Item>
+        </Show>
+        <Show when={props.onCopy}>
+          <ContextMenu.Item onSelect={() => props.onCopy!(node)}>
+            <ContextMenu.ItemLabel>Copy</ContextMenu.ItemLabel>
+          </ContextMenu.Item>
+        </Show>
+        <Show when={props.onDelete}>
+          <ContextMenu.Item onSelect={() => props.onDelete!(node)}>
+            <ContextMenu.ItemLabel>Delete</ContextMenu.ItemLabel>
+          </ContextMenu.Item>
+        </Show>
+        <Show when={props.onReveal}>
+          <ContextMenu.Separator />
+          <ContextMenu.Item onSelect={() => props.onReveal!(node)}>
+            <ContextMenu.ItemLabel>Reveal in File Explorer</ContextMenu.ItemLabel>
+          </ContextMenu.Item>
+        </Show>
+      </ContextMenu.Content>
+    </ContextMenu.Portal>
+  )
+
   return (
     <div data-component="filetree" class={`flex flex-col gap-0.5 ${props.class ?? ""}`}>
       <For each={nodes()}>
@@ -392,7 +484,7 @@ export default function FileTree(props: {
           const kind = () => visibleKind(node, kinds(), marks())
           const active = () => !!kind() && !node.ignored
 
-          return (
+          const nodeContent = (
             <Switch>
               <Match when={node.type === "directory"}>
                 <Collapsible
@@ -404,19 +496,34 @@ export default function FileTree(props: {
                   onOpenChange={(open) => (open ? file.tree.expand(node.path) : file.tree.collapse(node.path))}
                 >
                   <Collapsible.Trigger>
-                    <FileTreeNode
-                      node={node}
-                      level={level}
-                      active={props.active}
-                      nodeClass={props.nodeClass}
-                      draggable={draggable()}
-                      kinds={kinds()}
-                      marks={marks()}
+                    <Show
+                      when={renamingPath() === node.path}
+                      fallback={
+                        <FileTreeNode
+                          node={node}
+                          level={level}
+                          active={props.active}
+                          nodeClass={props.nodeClass}
+                          draggable={draggable()}
+                          kinds={kinds()}
+                          marks={marks()}
+                        >
+                          <div class="size-4 flex items-center justify-center text-icon-weak">
+                            <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" />
+                          </div>
+                        </FileTreeNode>
+                      }
                     >
-                      <div class="size-4 flex items-center justify-center text-icon-weak">
-                        <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" />
-                      </div>
-                    </FileTreeNode>
+                      <InlineRenameInput
+                        node={node}
+                        level={level}
+                        onCommit={(newName) => {
+                          setRenamingPath(undefined)
+                          if (newName !== node.name) props.onRename?.(node, newName)
+                        }}
+                        onCancel={() => setRenamingPath(undefined)}
+                      />
+                    </Show>
                   </Collapsible.Trigger>
                   <Collapsible.Content class="relative pt-0.5">
                     <div
@@ -440,6 +547,10 @@ export default function FileTree(props: {
                         active={props.active}
                         draggable={props.draggable}
                         onFileClick={props.onFileClick}
+                        onRename={props.onRename}
+                        onDelete={props.onDelete}
+                        onCopy={props.onCopy}
+                        onReveal={props.onReveal}
                         _filter={filter()}
                         _marks={marks()}
                         _deeps={deeps()}
@@ -451,53 +562,79 @@ export default function FileTree(props: {
                 </Collapsible>
               </Match>
               <Match when={node.type === "file"}>
-                <FileTreeNode
-                  node={node}
-                  level={level}
-                  active={props.active}
-                  nodeClass={props.nodeClass}
-                  draggable={draggable()}
-                  kinds={kinds()}
-                  marks={marks()}
-                  as="button"
-                  type="button"
-                  onClick={() => props.onFileClick?.(node)}
+                <Show
+                  when={renamingPath() === node.path}
+                  fallback={
+                    <FileTreeNode
+                      node={node}
+                      level={level}
+                      active={props.active}
+                      nodeClass={props.nodeClass}
+                      draggable={draggable()}
+                      kinds={kinds()}
+                      marks={marks()}
+                      as="button"
+                      type="button"
+                      onClick={() => props.onFileClick?.(node)}
+                    >
+                      <div class="w-4 shrink-0" />
+                      <Switch>
+                        <Match when={node.ignored}>
+                          <FileIcon
+                            node={node}
+                            class="size-4 filetree-icon filetree-icon--mono"
+                            style="color: var(--icon-weak-base)"
+                            mono
+                          />
+                        </Match>
+                        <Match when={active()}>
+                          <FileIcon
+                            node={node}
+                            class="size-4 filetree-icon filetree-icon--mono"
+                            style={kindTextColor(kind()!)}
+                            mono
+                          />
+                        </Match>
+                        <Match when={!node.ignored}>
+                          <span class="filetree-iconpair size-4">
+                            <FileIcon
+                              node={node}
+                              class="size-4 filetree-icon filetree-icon--color opacity-0 group-hover/filetree:opacity-100"
+                            />
+                            <FileIcon
+                              node={node}
+                              class="size-4 filetree-icon filetree-icon--mono group-hover/filetree:opacity-0"
+                              mono
+                            />
+                          </span>
+                        </Match>
+                      </Switch>
+                    </FileTreeNode>
+                  }
                 >
-                  <div class="w-4 shrink-0" />
-                  <Switch>
-                    <Match when={node.ignored}>
-                      <FileIcon
-                        node={node}
-                        class="size-4 filetree-icon filetree-icon--mono"
-                        style="color: var(--icon-weak-base)"
-                        mono
-                      />
-                    </Match>
-                    <Match when={active()}>
-                      <FileIcon
-                        node={node}
-                        class="size-4 filetree-icon filetree-icon--mono"
-                        style={kindTextColor(kind()!)}
-                        mono
-                      />
-                    </Match>
-                    <Match when={!node.ignored}>
-                      <span class="filetree-iconpair size-4">
-                        <FileIcon
-                          node={node}
-                          class="size-4 filetree-icon filetree-icon--color opacity-0 group-hover/filetree:opacity-100"
-                        />
-                        <FileIcon
-                          node={node}
-                          class="size-4 filetree-icon filetree-icon--mono group-hover/filetree:opacity-0"
-                          mono
-                        />
-                      </span>
-                    </Match>
-                  </Switch>
-                </FileTreeNode>
+                  <InlineRenameInput
+                    node={node}
+                    level={level}
+                    onCommit={(newName) => {
+                      setRenamingPath(undefined)
+                      if (newName !== node.name) props.onRename?.(node, newName)
+                    }}
+                    onCancel={() => setRenamingPath(undefined)}
+                  />
+                </Show>
               </Match>
             </Switch>
+          )
+
+          if (!hasContextMenu()) return nodeContent
+
+          return (
+            <ContextMenu>
+              <ContextMenu.Trigger as="div" class="w-full">
+                {nodeContent}
+              </ContextMenu.Trigger>
+              {contextMenuItems(node)}
+            </ContextMenu>
           )
         }}
       </For>

@@ -26,7 +26,7 @@ export function invalidateFromWatcher(event: WatcherEvent, ops: WatcherOps) {
 
   const path = ops.normalize(rawPath)
   if (!path) return
-  if (path.startsWith(".git/")) return
+  if (path.startsWith(".git/") || path.startsWith(".git\\")) return
 
   if (ops.hasFile(path) || ops.isOpen?.(path)) {
     ops.loadFile(path)
@@ -46,7 +46,8 @@ export function invalidateFromWatcher(event: WatcherEvent, ops: WatcherOps) {
   }
   if (kind !== "add" && kind !== "unlink") return
 
-  const parent = path.split("/").slice(0, -1).join("/")
+  const lastSep = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"))
+  const parent = lastSep === -1 ? "" : path.slice(0, lastSep)
   if (!ops.isDirLoaded(parent)) return
 
   ops.refreshDir(parent)

@@ -17,6 +17,18 @@ export const FileQuery = Schema.Struct({
   path: Schema.String,
 })
 
+export const FileWritePayload = Schema.Struct({
+  content: Schema.String,
+})
+
+export const FileRenamePayload = Schema.Struct({
+  to: Schema.String,
+})
+
+export const FileCopyPayload = Schema.Struct({
+  to: Schema.String,
+})
+
 export const FindTextQuery = Schema.Struct({
   ...WorkspaceRoutingQueryFields,
   pattern: Schema.String,
@@ -43,6 +55,10 @@ export const FilePaths = {
   findSymbol: "/find/symbol",
   list: "/file",
   content: "/file/content",
+  write: "/file/write",
+  rename: "/file/rename",
+  remove: "/file/remove",
+  copy: "/file/copy",
   status: "/file/status",
 } as const
 
@@ -100,6 +116,17 @@ export const FileApi = HttpApi.make("file")
             description: "Read the content of a specified file.",
           }),
         ),
+        HttpApiEndpoint.post("write", FilePaths.write, {
+          query: FileQuery,
+          payload: FileWritePayload,
+          success: described(File.Content, "File written"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "file.write",
+            summary: "Write file",
+            description: "Write content to a file in the project directory.",
+          }),
+        ),
         HttpApiEndpoint.get("status", FilePaths.status, {
           query: WorkspaceRoutingQuery,
           success: described(Schema.Array(File.Info), "File status"),
@@ -108,6 +135,38 @@ export const FileApi = HttpApi.make("file")
             identifier: "file.status",
             summary: "Get file status",
             description: "Get the git status of all files in the project.",
+          }),
+        ),
+        HttpApiEndpoint.post("rename", FilePaths.rename, {
+          query: FileQuery,
+          payload: FileRenamePayload,
+          success: described(Schema.Struct({ ok: Schema.Boolean }), "Rename result"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "file.rename",
+            summary: "Rename file",
+            description: "Rename or move a file or directory.",
+          }),
+        ),
+        HttpApiEndpoint.delete("remove", FilePaths.remove, {
+          query: FileQuery,
+          success: described(Schema.Struct({ ok: Schema.Boolean }), "Delete result"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "file.remove",
+            summary: "Delete file",
+            description: "Delete a file or directory.",
+          }),
+        ),
+        HttpApiEndpoint.post("copy", FilePaths.copy, {
+          query: FileQuery,
+          payload: FileCopyPayload,
+          success: described(Schema.Struct({ ok: Schema.Boolean }), "Copy result"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "file.copy",
+            summary: "Copy file",
+            description: "Copy a file or directory.",
           }),
         ),
       )

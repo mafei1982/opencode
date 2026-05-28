@@ -39,8 +39,36 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
       return yield* svc.read(ctx.query.path)
     })
 
+    const write = Effect.fn("FileHttpApi.write")(function* (ctx: {
+      query: { path: string }
+      payload: { content: string }
+    }) {
+      return yield* svc.write(ctx.query.path, ctx.payload.content)
+    })
+
     const status = Effect.fn("FileHttpApi.status")(function* () {
       return yield* svc.status()
+    })
+
+    const rename = Effect.fn("FileHttpApi.rename")(function* (ctx: {
+      query: { path: string }
+      payload: { to: string }
+    }) {
+      yield* svc.rename(ctx.query.path, ctx.payload.to)
+      return { ok: true }
+    })
+
+    const remove = Effect.fn("FileHttpApi.remove")(function* (ctx: { query: { path: string } }) {
+      yield* svc.remove(ctx.query.path)
+      return { ok: true }
+    })
+
+    const copy = Effect.fn("FileHttpApi.copy")(function* (ctx: {
+      query: { path: string }
+      payload: { to: string }
+    }) {
+      yield* svc.copy(ctx.query.path, ctx.payload.to)
+      return { ok: true }
     })
 
     return handlers
@@ -49,6 +77,10 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
       .handle("findSymbol", findSymbol)
       .handle("list", list)
       .handle("content", content)
+      .handle("write", write)
+      .handle("rename", rename)
+      .handle("remove", remove)
+      .handle("copy", copy)
       .handle("status", status)
   }),
 )

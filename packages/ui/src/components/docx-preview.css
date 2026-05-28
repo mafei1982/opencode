@@ -1,0 +1,66 @@
+.docx-preview {
+  line-height: 1.6;
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+  }
+
+  h1 {
+    font-size: 1.5em;
+  }
+  h2 {
+    font-size: 1.25em;
+  }
+  h3 {
+    font-size: 1.125em;
+  }
+
+  p {
+    margin-bottom: 0.75em;
+  }
+
+  ul,
+  ol {
+    padding-left: 1.5em;
+    margin-bottom: 0.75em;
+  }
+
+  li {
+    margin-bottom: 0.25em;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1em;
+  }
+
+  th,
+  td {
+    border: 1px solid var(--color-border-base);
+    padding: 0.5em 0.75em;
+    text-align: left;
+  }
+
+  th {
+    font-weight: 600;
+    background: var(--color-background-stronger);
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  a {
+    color: var(--color-text-link);
+    text-decoration: underline;
+  }
+}

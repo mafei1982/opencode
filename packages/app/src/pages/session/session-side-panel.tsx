@@ -6,6 +6,7 @@ import { IconButton } from "@opencode-ai/ui/icon-button"
 import { TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Mark } from "@opencode-ai/ui/logo"
+import { showToast } from "@opencode-ai/ui/toast"
 import { DragDropProvider, DragDropSensors, DragOverlay, SortableProvider, closestCenter } from "@thisbeyond/solid-dnd"
 import type { DragEvent } from "@thisbeyond/solid-dnd"
 import type { SnapshotFileDiff, VcsFileDiff } from "@opencode-ai/sdk/v2"
@@ -22,8 +23,9 @@ import { useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
+import { base64Decode } from "@opencode-ai/core/util/encode"
 import { createFileTabListSync } from "@/pages/session/file-tab-scroll"
-import { FileTabContent } from "@/pages/session/file-tabs"
+import { MonacoFileTab } from "@/components/monaco-file-tab"
 import { createOpenSessionFileTab, createSessionTabs, getTabReorderIndex, type Sizing } from "@/pages/session/helpers"
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
@@ -55,7 +57,7 @@ export function SessionSidePanel(props: {
   const language = useLanguage()
   const command = useCommand()
   const dialog = useDialog()
-  const { sessionKey, tabs, view } = useSessionLayout()
+  const { params, sessionKey, tabs, view } = useSessionLayout()
 
   const isDesktop = createMediaQuery("(min-width: 768px)")
   const shown = createMemo(
@@ -126,6 +128,54 @@ export function SessionSidePanel(props: {
 
   const openReviewPanel = () => {
     if (!view().reviewPanel.opened()) view().reviewPanel.open()
+  }
+
+  const projectDir = createMemo(() => base64Decode(params.dir ?? "") ?? "")
+
+  const handleRename = async (node: { path: string; name: string }, newName: string) => {
+    const sep = Math.max(node.path.lastIndexOf("/"), node.path.lastIndexOf("\\"))
+    const parent = sep === -1 ? "" : node.path.slice(0, sep)
+    const separator = sep === -1 ? "/" : node.path[sep]
+    const newPath = parent ? `${parent}${separator}${newName}` : newName
+    try {
+      await file.rename(node.path, newPath)
+    } catch (err) {
+      showToast({ variant: "error", title: "Rename failed", description: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  const handleDelete = async (node: { path: string; name: string }) => {
+    if (!confirm(`Delete "${node.name}"?`)) return
+    try {
+      await file.remove(node.path)
+    } catch (err) {
+      showToast({ variant: "error", title: "Delete failed", description: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  const handleCopy = async (node: { path: string; name: string }) => {
+    const ext = node.name.lastIndexOf(".")
+    const base = ext > 0 ? node.name.slice(0, ext) : node.name
+    const suffix = ext > 0 ? node.name.slice(ext) : ""
+    const sep = Math.max(node.path.lastIndexOf("/"), node.path.lastIndexOf("\\"))
+    const parent = sep === -1 ? "" : node.path.slice(0, sep)
+    const separator = sep === -1 ? "/" : node.path[sep]
+    const copyName = `${base} - Copy${suffix}`
+    const copyPath = parent ? `${parent}${separator}${copyName}` : copyName
+    try {
+      await file.copy(node.path, copyPath)
+    } catch (err) {
+      showToast({ variant: "error", title: "Copy failed", description: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  const handleReveal = (node: { path: string }) => {
+    const dir = projectDir()
+    if (!dir || !platform.openPath) return
+    const sep = Math.max(node.path.lastIndexOf("/"), node.path.lastIndexOf("\\"))
+    const parent = sep === -1 ? "" : node.path.slice(0, sep)
+    const fullPath = parent ? `${dir}/${parent}` : dir
+    void platform.openPath(fullPath)
   }
 
   const openTab = createOpenSessionFileTab({
@@ -341,7 +391,7 @@ export function SessionSidePanel(props: {
                   </Show>
 
                   <Show when={activeFileTab()} keyed>
-                    {(tab) => <FileTabContent tab={tab} />}
+                    {(tab) => <MonacoFileTab tab={tab} />}
                   </Show>
                 </Tabs>
                 <DragOverlay>
@@ -394,6 +444,15 @@ export function SessionSidePanel(props: {
                     <Tabs.Trigger value="all" class="flex-1" classes={{ button: "w-full" }}>
                       {language.t("session.files.all")}
                     </Tabs.Trigger>
+                    <div class="flex items-center px-1">
+                      <IconButton
+                        icon="arrow-undo-down"
+                        variant="ghost"
+                        class="h-5 w-5"
+                        onClick={() => file.tree.refreshAll()}
+                        aria-label="Refresh file tree"
+                      />
+                    </div>
                   </Tabs.List>
                   <Tabs.Content value="changes" class="bg-background-stronger px-3 py-0">
                     <Switch>
@@ -430,6 +489,10 @@ export function SessionSidePanel(props: {
                           modified={diffFiles()}
                           kinds={kinds()}
                           onFileClick={(node) => openTab(file.tab(node.path))}
+                          onRename={handleRename}
+                          onDelete={handleDelete}
+                          onCopy={handleCopy}
+                          onReveal={platform.openPath ? handleReveal : undefined}
                         />
                       </Match>
                     </Switch>

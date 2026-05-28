@@ -8,6 +8,8 @@ export const CorsConfig = Context.Reference<CorsOptions | undefined>("@opencode/
   defaultValue: () => undefined,
 })
 
+const privateNetworkOrigin = /^https?:\/\/(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$/
+
 export function isAllowedCorsOrigin(input: string | undefined, opts?: CorsOptions) {
   if (!input) return true
   if (input.startsWith("http://localhost:")) return true
@@ -16,6 +18,7 @@ export function isAllowedCorsOrigin(input: string | undefined, opts?: CorsOption
   if (input === "tauri://localhost" || input === "http://tauri.localhost" || input === "https://tauri.localhost")
     return true
   if (opencodeOrigin.test(input)) return true
+  if (privateNetworkOrigin.test(input)) return true
   return opts?.cors?.includes(input) ?? false
 }
 
