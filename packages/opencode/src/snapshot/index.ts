@@ -78,11 +78,11 @@ export const layer: Layer.Layer<
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("Snapshot.state")(function* (ctx) {
+        const worktree = ctx.worktree === "/" ? ctx.directory : ctx.worktree
         const state = {
           directory: ctx.directory,
-          worktree: ctx.worktree,
-          gitdir: path.join(Global.Path.data, "snapshot", ctx.project.id, Hash.fast(ctx.worktree)),
-          vcs: ctx.project.vcs,
+          worktree,
+          gitdir: path.join(Global.Path.data, "snapshot", ctx.project.id, Hash.fast(worktree)),
         }
 
         const args = (cmd: string[]) => ["--git-dir", state.gitdir, "--work-tree", state.worktree, ...cmd]
@@ -125,7 +125,7 @@ export const layer: Layer.Layer<
             [
               ...quote,
               "--git-dir",
-              path.join(state.worktree, ".git"),
+              state.gitdir,
               "--work-tree",
               state.worktree,
               "check-ignore",
@@ -178,7 +178,6 @@ export const layer: Layer.Layer<
         const locked = <A, E, R>(fx: Effect.Effect<A, E, R>) => lock(state.gitdir).withPermits(1)(fx)
 
         const enabled = Effect.fnUntraced(function* () {
-          if (state.vcs !== "git") return false
           return (yield* config.get()).snapshot !== false
         })
 

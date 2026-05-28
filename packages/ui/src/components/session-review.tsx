@@ -392,8 +392,10 @@ export const SessionReview = (props: SessionReviewProps) => {
                   {(diff) => {
                     const file = diff.file
 
-                    // binary files have empty diffs that we can't render
-                    const diffCanRender = () => diff.additions !== 0 || diff.deletions !== 0
+                    // binary files have empty diffs that we can't render,
+                    // but media files (docx, images, pdf, etc.) can still be previewed
+                    const diffCanRender = () =>
+                      diff.additions !== 0 || diff.deletions !== 0 || !!mediaKindFromPath(file)
 
                     const expanded = createMemo(() => open().includes(file))
                     const mounted = createMemo(() => expanded() && (!!store.visible[file] || pinned(file)))

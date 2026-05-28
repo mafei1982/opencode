@@ -9,11 +9,11 @@
   flex-shrink: 0;
 
   &[data-variant="primary"] {
-    background-color: var(--icon-strong-base);
+    background-color: var(--button-primary-base);
 
     [data-slot="icon-svg"] {
       /* color: var(--icon-weak-base); */
-      color: var(--icon-invert-base);
+      color: #ffffff;
 
       /* &:hover:not(:disabled) { */
       /*   color: var(--icon-weak-hover); */
@@ -24,19 +24,19 @@
     }
 
     &:hover:not(:disabled) {
-      background-color: var(--icon-strong-hover);
+      background-color: var(--button-primary-hover);
     }
     &:focus:not(:disabled) {
-      background-color: var(--icon-strong-focus);
+      background-color: var(--button-primary-hover);
     }
     &:active:not(:disabled) {
-      background-color: var(--icon-strong-active);
+      background-color: var(--button-primary-active);
     }
     &:disabled {
       background-color: var(--icon-strong-disabled);
 
       [data-slot="icon-svg"] {
-        color: var(--icon-invert-base);
+        color: #ffffff;
       }
     }
   }

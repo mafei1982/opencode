@@ -1,5 +1,5 @@
 import { Tabs as Kobalte } from "@kobalte/core/tabs"
-import { Show, splitProps, type JSX } from "solid-js"
+import { Show, splitProps, createSignal, onMount, onCleanup, type JSX } from "solid-js"
 import type { ComponentProps, ParentProps, Component } from "solid-js"
 
 export interface TabsProps extends ComponentProps<typeof Kobalte> {
@@ -36,15 +36,72 @@ function TabsRoot(props: TabsProps) {
 
 function TabsList(props: TabsListProps) {
   const [split, rest] = splitProps(props, ["class", "classList"])
+  let listRef: HTMLDivElement | undefined
+  const [canScrollLeft, setCanScrollLeft] = createSignal(false)
+  const [canScrollRight, setCanScrollRight] = createSignal(false)
+
+  const updateScrollState = () => {
+    if (!listRef) return
+    const el = listRef
+    setCanScrollLeft(el.scrollLeft > 1)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }
+
+  const scroll = (dir: -1 | 1) => {
+    if (!listRef) return
+    listRef.scrollBy({ left: dir * 120, behavior: "smooth" })
+  }
+
+  onMount(() => {
+    if (!listRef) return
+    updateScrollState()
+    const observer = new ResizeObserver(updateScrollState)
+    observer.observe(listRef)
+    listRef.addEventListener("scroll", updateScrollState, { passive: true })
+    onCleanup(() => {
+      observer.disconnect()
+      listRef?.removeEventListener("scroll", updateScrollState)
+    })
+  })
+
   return (
-    <Kobalte.List
-      {...rest}
-      data-slot="tabs-list"
-      classList={{
-        ...split.classList,
-        [split.class ?? ""]: !!split.class,
-      }}
-    />
+    <div data-slot="tabs-list-container">
+      <Show when={canScrollLeft()}>
+        <button
+          data-slot="tabs-scroll-button"
+          data-direction="left"
+          onClick={() => scroll(-1)}
+          aria-label="Scroll tabs left"
+          type="button"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </Show>
+      <Kobalte.List
+        {...rest}
+        ref={listRef}
+        data-slot="tabs-list"
+        classList={{
+          ...split.classList,
+          [split.class ?? ""]: !!split.class,
+        }}
+      />
+      <Show when={canScrollRight()}>
+        <button
+          data-slot="tabs-scroll-button"
+          data-direction="right"
+          onClick={() => scroll(1)}
+          aria-label="Scroll tabs right"
+          type="button"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </Show>
+    </div>
   )
 }
 

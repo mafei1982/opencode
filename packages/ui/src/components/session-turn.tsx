@@ -1,6 +1,7 @@
 import {
   AssistantMessage,
   type SnapshotFileDiff,
+  type FileContent,
   Message as MessageType,
   Part as PartType,
 } from "@opencode-ai/sdk/v2/client"
@@ -24,6 +25,7 @@ import { SessionRetry } from "./session-retry"
 import { TextReveal } from "./text-reveal"
 import { createAutoScroll } from "../hooks"
 import { useI18n } from "../context/i18n"
+import { mediaKindFromPath } from "../pierre/media"
 import { normalize } from "./session-diff"
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -161,6 +163,7 @@ export function SessionTurn(
     active?: boolean
     status?: SessionStatus
     onUserInteracted?: () => void
+    readFile?: (path: string) => Promise<FileContent | undefined>
     classes?: {
       root?: string
       content?: string
@@ -464,21 +467,17 @@ export function SessionTurn(
                           const [shown, setShown] = createSignal(false)
 
                           createEffect(
-                            on(
-                              active,
-                              (value) => {
-                                if (!value) {
-                                  setShown(false)
-                                  return
-                                }
+                            on(active, (value) => {
+                              if (!value) {
+                                setShown(false)
+                                return
+                              }
 
-                                requestAnimationFrame(() => {
-                                  if (!active()) return
-                                  setShown(true)
-                                })
-                              },
-                              { defer: true },
-                            ),
+                              requestAnimationFrame(() => {
+                                if (!active()) return
+                                setShown(true)
+                              })
+                            }),
                           )
 
                           return (
@@ -508,7 +507,17 @@ export function SessionTurn(
                               <Accordion.Content>
                                 <Show when={shown()}>
                                   <div data-slot="session-turn-diff-view" data-scrollable>
-                                    <Dynamic component={fileComponent} mode="diff" fileDiff={view.fileDiff} />
+                                    <Dynamic
+                                      component={fileComponent}
+                                      mode="diff"
+                                      fileDiff={view.fileDiff}
+                                      media={{
+                                        mode: "auto",
+                                        path: diff.file,
+                                        deleted: diff.status === "deleted",
+                                        readFile: diff.status === "deleted" ? undefined : props.readFile,
+                                      }}
+                                    />
                                   </div>
                                 </Show>
                               </Accordion.Content>

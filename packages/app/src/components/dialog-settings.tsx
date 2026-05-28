@@ -55,16 +55,16 @@ export const DialogSettings: Component = () => {
             </div>
           </div>
         </Tabs.List>
-        <Tabs.Content value="general" class="no-scrollbar">
+        <Tabs.Content value="general" class="settings-content">
           <SettingsGeneral />
         </Tabs.Content>
-        <Tabs.Content value="shortcuts" class="no-scrollbar">
+        <Tabs.Content value="shortcuts" class="settings-content">
           <SettingsKeybinds />
         </Tabs.Content>
-        <Tabs.Content value="providers" class="no-scrollbar">
+        <Tabs.Content value="providers" class="settings-content">
           <SettingsProviders />
         </Tabs.Content>
-        <Tabs.Content value="models" class="no-scrollbar">
+        <Tabs.Content value="models" class="settings-content">
           <SettingsModels />
         </Tabs.Content>
       </Tabs>

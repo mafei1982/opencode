@@ -33,8 +33,14 @@ const options = {
 
 export type NetworkOptions = InferredOptionTypes<typeof options>
 
-export function withNetworkOptions<T>(yargs: Argv<T>) {
-  return yargs.options(options)
+export function withNetworkOptions<T>(yargs: Argv<T>, input?: { hostnameDefault?: string }) {
+  return yargs.options({
+    ...options,
+    hostname: {
+      ...options.hostname,
+      default: input?.hostnameDefault ?? options.hostname.default,
+    },
+  })
 }
 export const resolveNetworkOptions = Effect.fn("Cli.resolveNetworkOptions")(function* (args: NetworkOptions) {
   const config = yield* Config.Service.use((cfg) => cfg.getGlobal())

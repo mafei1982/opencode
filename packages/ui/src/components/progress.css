@@ -42,7 +42,7 @@
     height: 100%;
     width: var(--kb-progress-fill-width);
     border-radius: inherit;
-    background-color: var(--border-active);
+    background-color: var(--button-primary-base);
     transition: width 200ms ease;
   }
 

@@ -93,8 +93,8 @@
 
   &[data-checked] [data-slot="switch-control"] {
     box-sizing: border-box;
-    border-color: var(--icon-strong-base);
-    background-color: var(--icon-strong-base);
+    border-color: var(--button-primary-base);
+    background-color: var(--button-primary-base);
   }
 
   &[data-checked] [data-slot="switch-thumb"] {
