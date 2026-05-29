@@ -39,14 +39,14 @@ import { checkUpdate, checkForUpdates, installUpdate, setupAutoUpdater } from ".
 import { Deferred, Effect, Fiber } from "effect"
 
 const APP_NAMES: Record<string, string> = {
-  dev: "OpenCode Dev",
-  beta: "OpenCode Beta",
-  prod: "OpenCode",
+  dev: "NI CIC Code Dev",
+  beta: "NI CIC Code Beta",
+  prod: "NI CIC Code",
 }
 const APP_IDS: Record<string, string> = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: "com.ni.cic-code.desktop.dev",
+  beta: "com.ni.cic-code.desktop.beta",
+  prod: "com.ni.cic-code.desktop",
 }
 const TEST_ONBOARDING = process.env.OPENCODE_TEST_ONBOARDING === "1"
 

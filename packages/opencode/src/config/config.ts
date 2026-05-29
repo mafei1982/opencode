@@ -686,6 +686,21 @@ export const layer = Layer.effect(
           }
         }
 
+        // Desktop-embedded config overrides managed config and all user config
+        if (Flag.OPENCODE_EMBEDDED_CONFIG_DIR && existsSync(Flag.OPENCODE_EMBEDDED_CONFIG_DIR)) {
+          const embeddedDir = Flag.OPENCODE_EMBEDDED_CONFIG_DIR
+          log.debug("loading embedded config", { path: embeddedDir })
+          for (const file of ["opencode.json", "opencode.jsonc"]) {
+            const source = path.join(embeddedDir, file)
+            yield* merge(source, yield* loadFile(source), "global")
+          }
+          result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.load(embeddedDir)))
+          result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.loadMode(embeddedDir)))
+          result.command = mergeDeep(result.command ?? {}, yield* Effect.promise(() => ConfigCommand.load(embeddedDir)))
+          const embeddedPlugins = yield* Effect.promise(() => ConfigPlugin.load(embeddedDir))
+          yield* mergePluginOrigins(embeddedDir, embeddedPlugins, "global")
+        }
+
         // macOS managed preferences (.mobileconfig deployed via MDM) override everything
         const managed = yield* Effect.promise(() => ConfigManaged.readManagedPreferences())
         if (managed) {

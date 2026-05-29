@@ -185,6 +185,7 @@ export const layer: Layer.Layer<
         }
 
         const dirs = yield* config.directories()
+        if (Flag.OPENCODE_EMBEDDED_CONFIG_DIR) dirs.push(Flag.OPENCODE_EMBEDDED_CONFIG_DIR)
         const matches = dirs.flatMap((dir) =>
           Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: dir, absolute: true, dot: true, symlink: true }),
         )
