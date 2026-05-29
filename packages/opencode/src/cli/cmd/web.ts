@@ -4,6 +4,7 @@ import { UI } from "../ui"
 import { effectCmd } from "../effect-cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag } from "@opencode-ai/core/flag/flag"
+import { isLocalProviderEnabled, loadLocalModel } from "../../provider/sdk/local/local-provider"
 import open from "open"
 import { networkInterfaces } from "os"
 
@@ -41,6 +42,14 @@ export const WebCommand = effectCmd({
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  OPENCODE_SERVER_PASSWORD is not set; server is unsecured.")
     }
     const opts = yield* resolveNetworkOptions(args)
+
+    // Eagerly load local model before starting the server so first request is fast
+    if (isLocalProviderEnabled()) {
+      UI.println(UI.Style.TEXT_INFO_BOLD + "  Loading local model (llama.cpp)...")
+      yield* Effect.promise(() => loadLocalModel())
+      UI.println(UI.Style.TEXT_INFO_BOLD + "  Local model loaded successfully.")
+    }
+
     const server = yield* Effect.promise(() => Server.listen(opts))
     UI.empty()
     UI.println(UI.logo("  "))

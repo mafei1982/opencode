@@ -1,4 +1,9 @@
-export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" }
+export type InitStep =
+  | { phase: "server_waiting" }
+  | { phase: "sqlite_waiting" }
+  | { phase: "llm_downloading" }
+  | { phase: "llm_loading" }
+  | { phase: "done" }
 
 export type ServerReadyData = {
   url: string
@@ -7,6 +12,11 @@ export type ServerReadyData = {
 }
 
 export type SqliteMigrationProgress = { type: "InProgress"; value: number } | { type: "Done" }
+
+export type LlmDownloadProgress =
+  | { type: "InProgress"; percent: number; downloadedSize: number; totalSize: number }
+  | { type: "Done" }
+  | { type: "Error"; message: string }
 
 export type WslConfig = { enabled: boolean }
 
@@ -44,6 +54,7 @@ export type ElectronAPI = {
 
   getWindowCount: () => Promise<number>
   onSqliteMigrationProgress: (cb: (progress: SqliteMigrationProgress) => void) => () => void
+  onLlmDownloadProgress: (cb: (progress: LlmDownloadProgress) => void) => () => void
   onMenuCommand: (cb: (id: string) => void) => () => void
   onDeepLink: (cb: (urls: string[]) => void) => () => void
 

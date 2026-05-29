@@ -5,7 +5,7 @@ import type { Details } from "electron"
 import { DEFAULT_SERVER_URL_KEY, WSL_ENABLED_KEY } from "./constants"
 import { getUserShell, loadShellEnv } from "./shell-env"
 import { getStore } from "./store"
-import type { SqliteMigrationProgress } from "../preload/types"
+import type { LlmDownloadProgress, SqliteMigrationProgress } from "../preload/types"
 
 export type WslConfig = { enabled: boolean }
 
@@ -13,6 +13,7 @@ export type HealthCheck = { wait: Promise<void> }
 
 type SidecarMessage =
   | { type: "sqlite"; progress: SqliteMigrationProgress }
+  | { type: "llm"; progress: LlmDownloadProgress }
   | { type: "ready" }
   | { type: "stopped" }
   | { type: "error"; error: { message: string; stack?: string } }
@@ -27,6 +28,7 @@ type SpawnLocalServerOptions = {
   needsMigration: boolean
   userDataPath: string
   onSqliteProgress?: (progress: SqliteMigrationProgress) => void
+  onLlmProgress?: (progress: LlmDownloadProgress) => void
   onStdout?: (message: string) => void
   onStderr?: (message: string) => void
   onExit?: (code: number) => void
@@ -125,6 +127,11 @@ export async function spawnLocalServer(
         options.onSqliteProgress?.(message.progress)
         return
       }
+      if (message.type === "llm") {
+        refreshTimeout()
+        options.onLlmProgress?.(message.progress)
+        return
+      }
       if (message.type === "ready") {
         if (done) return
         done = true
@@ -159,6 +166,11 @@ export async function spawnLocalServer(
   }).catch((error) => {
     if (!exited) child.kill()
     throw error
+  })
+
+  // Listen for LLM progress messages after server is ready
+  child.on("message", (message: SidecarMessage) => {
+    if (message.type === "llm") options.onLlmProgress?.(message.progress)
   })
 
   const wait = (async () => {

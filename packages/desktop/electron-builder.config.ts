@@ -33,11 +33,20 @@ const getBase = (): Configuration => ({
     buildResources: "resources",
   },
   files: ["out/**/*", "resources/**/*"],
+  asarUnpack: [
+    "node_modules/@node-llama-cpp/*/bins/**",
+    "node_modules/node-llama-cpp/llama/**",
+  ],
   extraResources: [
     {
       from: "native/",
       to: "native/",
       filter: ["index.js", "index.d.ts", "build/Release/mac_window.node", "swift-build/**"],
+    },
+    {
+      from: "resources/llm.env",
+      to: "llm.env",
+      filter: ["llm.env"],
     },
   ],
   mac: {

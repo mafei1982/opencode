@@ -4,6 +4,7 @@ import type { IpcMainEvent, IpcMainInvokeEvent } from "electron"
 
 import type {
   InitStep,
+  LlmDownloadProgress,
   ServerReadyData,
   SqliteMigrationProgress,
   TitlebarTheme,
@@ -202,6 +203,11 @@ export function registerIpcHandlers(deps: Deps) {
 
 export function sendSqliteMigrationProgress(win: BrowserWindow, progress: SqliteMigrationProgress) {
   win.webContents.send("sqlite-migration-progress", progress)
+}
+
+export function sendLlmDownloadProgress(win: BrowserWindow, progress: LlmDownloadProgress) {
+  if (win.isDestroyed()) return
+  win.webContents.send("llm-download-progress", progress)
 }
 
 export function sendMenuCommand(win: BrowserWindow, id: string) {

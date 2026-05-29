@@ -1,5 +1,7 @@
 import { drizzle } from "drizzle-orm/node-sqlite/driver"
+import * as fs from "node:fs"
 import * as http from "node:http"
+import * as path from "node:path"
 import * as tls from "node:tls"
 
 type NodeHttpWithEnvProxy = typeof http & {
@@ -25,6 +27,7 @@ type SidecarCommand = StartCommand | StopCommand
 
 type SidecarMessage =
   | { type: "sqlite"; progress: { type: "InProgress"; value: number } | { type: "Done" } }
+  | { type: "llm"; progress: { type: "InProgress"; percent: number; downloadedSize: number; totalSize: number } | { type: "Done" } | { type: "Error"; message: string } }
   | { type: "ready" }
   | { type: "stopped" }
   | { type: "error"; error: { message: string; stack?: string } }
@@ -53,6 +56,8 @@ parentPort.on("message", (event) => {
 
 async function start(command: StartCommand) {
   try {
+    loadBundledEnv()
+    ensureModelDir()
     prepareSidecarEnv(command.password, command.userDataPath)
     ensureLoopbackNoProxy()
     useSystemCertificates()
@@ -83,6 +88,31 @@ async function start(command: StartCommand) {
       cors: ["oc://renderer"],
     })
     parentPort.postMessage({ type: "ready" })
+
+    // Load local LLM model after server is ready (non-blocking)
+    // Download progress is reported; model loading in memory happens in background
+    if ((process.env.LLM_PROVIDER ?? "").toLowerCase() === "local") {
+      console.log("[sidecar] Loading local LLM model (llama.cpp)...")
+      import("virtual:opencode-server")
+        .then(({ loadLocalModel }) =>
+          loadLocalModel(undefined, (p: { totalSize: number; downloadedSize: number }) => {
+            const percent = p.totalSize > 0 ? Math.round((p.downloadedSize / p.totalSize) * 100) : 0
+            parentPort.postMessage({
+              type: "llm",
+              progress: { type: "InProgress", percent, downloadedSize: p.downloadedSize, totalSize: p.totalSize },
+            })
+          }),
+        )
+        .then(() => {
+          parentPort.postMessage({ type: "llm", progress: { type: "Done" } })
+          console.log("[sidecar] Local LLM model loaded successfully.")
+        })
+        .catch((llmError: unknown) => {
+          const msg = llmError instanceof Error ? llmError.message : String(llmError)
+          console.error("[sidecar] Failed to load local LLM model, continuing without it:", llmError)
+          parentPort.postMessage({ type: "llm", progress: { type: "Error", message: msg } })
+        })
+    }
   } catch (error) {
     parentPort.postMessage({ type: "error", error: serializeError(error) })
     setImmediate(() => process.exit(1))
@@ -105,6 +135,65 @@ function prepareSidecarEnv(password: string, userDataPath: string) {
     OPENCODE_SERVER_PASSWORD: password,
     XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
   })
+}
+
+/**
+ * Load a bundled `llm.env` file from the app's resources directory.
+ *
+ * During desktop app build, a `.env` file can be copied to `resources/llm.env`
+ * (via `LLM_ENV_FILE` env var or manually). This function reads it at startup
+ * and sets the environment variables — but does NOT override variables that
+ * are already set (so runtime env takes precedence over bundled defaults).
+ *
+ * The file format is standard `.env`: KEY=VALUE lines, `#` comments, blank lines.
+ */
+function loadBundledEnv() {
+  // In packaged app: process.resourcesPath (e.g. .../resources/)
+  // In dev mode: ../../resources/ relative to out/main/
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, "llm.env") : "",
+    path.resolve(__dirname, "../../resources/llm.env"),
+  ].filter(Boolean)
+
+  for (const envPath of candidates) {
+    if (!fs.existsSync(envPath)) continue
+
+    console.log(`[sidecar] Loading bundled LLM config from ${envPath}`)
+    const content = fs.readFileSync(envPath, "utf-8")
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith("#")) continue
+      const eqIdx = trimmed.indexOf("=")
+      if (eqIdx === -1) continue
+
+      const key = trimmed.slice(0, eqIdx).trim()
+      let value = trimmed.slice(eqIdx + 1).trim()
+      // Strip surrounding quotes
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+        value = value.slice(1, -1)
+
+      // Don't override existing env vars — runtime env takes precedence
+      if (process.env[key] === undefined) process.env[key] = value
+    }
+
+    return
+  }
+}
+
+/**
+ * Ensure LLM_MODEL_DIR points to a persistent directory on the same drive
+ * as the packaged app, but outside the app bundle so it survives repackaging.
+ */
+function ensureModelDir() {
+  if (process.env.LLM_MODEL_DIR) return
+  const appRoot = process.resourcesPath
+    ? path.dirname(process.resourcesPath)
+    : path.resolve(__dirname, "../..")
+  // Put models at drive root (e.g. D:\.opencode\models) so they persist
+  // across app rebuilds — the old <app-root>/models got wiped by package:win
+  const drive = path.parse(appRoot).root
+  process.env.LLM_MODEL_DIR = path.join(drive, ".opencode", "models")
+  console.log(`[sidecar] LLM_MODEL_DIR auto-set to ${process.env.LLM_MODEL_DIR}`)
 }
 
 function ensureLoopbackNoProxy() {

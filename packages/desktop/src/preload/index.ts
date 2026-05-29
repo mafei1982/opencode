@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron"
-import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
+import type { ElectronAPI, InitStep, LlmDownloadProgress, SqliteMigrationProgress } from "./types"
 
 const api: ElectronAPI = {
   killSidecar: () => ipcRenderer.invoke("kill-sidecar"),
@@ -35,6 +35,11 @@ const api: ElectronAPI = {
     const handler = (_: unknown, progress: SqliteMigrationProgress) => cb(progress)
     ipcRenderer.on("sqlite-migration-progress", handler)
     return () => ipcRenderer.removeListener("sqlite-migration-progress", handler)
+  },
+  onLlmDownloadProgress: (cb) => {
+    const handler = (_: unknown, progress: LlmDownloadProgress) => cb(progress)
+    ipcRenderer.on("llm-download-progress", handler)
+    return () => ipcRenderer.removeListener("llm-download-progress", handler)
   },
   onMenuCommand: (cb) => {
     const handler = (_: unknown, id: string) => cb(id)

@@ -114,6 +114,7 @@ const BUNDLED_PROVIDERS: Record<string, () => Promise<(opts: any) => BundledSDK>
   "gitlab-ai-provider": () => import("gitlab-ai-provider").then((m) => m.createGitLab),
   "@ai-sdk/github-copilot": () => import("./sdk/copilot/copilot-provider").then((m) => m.createOpenaiCompatible),
   "venice-ai-sdk-provider": () => import("venice-ai-sdk-provider").then((m) => m.createVenice),
+  "@opencode/local-llamacpp": () => import("./sdk/local/local-provider").then((m) => m.createLocal),
 }
 
 type CustomModelLoader = (sdk: any, modelID: string, options?: Record<string, any>) => Promise<any>
@@ -830,6 +831,29 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           },
         },
       }),
+    local: Effect.fnUntraced(function* () {
+      const env = yield* dep.env()
+      const isLocal = (env.LLM_PROVIDER ?? "").toLowerCase() === "local"
+      if (!isLocal) return { autoload: false }
+
+      return {
+        autoload: true,
+        options: {
+          modelPath: env.LLM_MODEL_PATH,
+          nCtx: env.LLM_N_CTX ? parseInt(env.LLM_N_CTX, 10) : undefined,
+          nGpuLayers: env.LLM_N_GPU_LAYERS ? parseInt(env.LLM_N_GPU_LAYERS, 10) : undefined,
+          cacheTypeK: env.LLM_CACHE_TYPE_K,
+          cacheTypeV: env.LLM_CACHE_TYPE_V,
+          disableThinking: (env.LLM_DISABLE_THINKING ?? "").toLowerCase() === "true",
+          temperature: env.LLM_TEMPERATURE ? parseFloat(env.LLM_TEMPERATURE) : undefined,
+          topP: env.LLM_TOP_P ? parseFloat(env.LLM_TOP_P) : undefined,
+          topK: env.LLM_TOP_K ? parseInt(env.LLM_TOP_K, 10) : undefined,
+          minP: env.LLM_MIN_P ? parseFloat(env.LLM_MIN_P) : undefined,
+          inferenceTimeout: env.LLM_INFERENCE_TIMEOUT ? parseInt(env.LLM_INFERENCE_TIMEOUT, 10) : undefined,
+          inferenceRetries: env.LLM_INFERENCE_RETRIES ? parseInt(env.LLM_INFERENCE_RETRIES, 10) : undefined,
+        },
+      }
+    }),
   }
 }
 
@@ -1097,6 +1121,51 @@ const layer: Layer.Layer<
         const modelsDev = yield* modelsDevSvc.get()
         const database = mapValues(modelsDev, fromModelsDevProvider)
 
+        // Inject synthetic "local" provider entry when LLM_PROVIDER=local.
+        // This provider is not in models.dev, so we create it manually.
+        if ((process.env.LLM_PROVIDER ?? "").toLowerCase() === "local") {
+          const localModelName = process.env.LLM_MODEL_PATH ?? "local-model"
+          database[ProviderID.local] = {
+            id: ProviderID.local,
+            name: "Local (llama.cpp)",
+            source: "custom",
+            env: [],
+            options: {},
+            models: {
+              default: {
+                id: ModelID.make("default"),
+                providerID: ProviderID.local,
+                name: `Local Model (${localModelName})`,
+                family: "",
+                api: {
+                  id: "default",
+                  url: "",
+                  npm: "@opencode/local-llamacpp",
+                },
+                status: "active",
+                headers: {},
+                options: {},
+                cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+                limit: {
+                  context: parseInt(process.env.LLM_N_CTX ?? "128000", 10),
+                  output: parseInt(process.env.LLM_N_CTX ?? "128000", 10),
+                },
+                capabilities: {
+                  temperature: true,
+                  reasoning: true,
+                  attachment: false,
+                  toolcall: true,
+                  input: { text: true, audio: false, image: false, video: false, pdf: false },
+                  output: { text: true, audio: false, image: false, video: false, pdf: false },
+                  interleaved: false,
+                },
+                release_date: "",
+                variants: {},
+              },
+            },
+          }
+        }
+
         const providers: Record<ProviderID, Info> = {} as Record<ProviderID, Info>
         const languages = new Map<string, LanguageModelV3>()
         const modelLoaders: {
@@ -1137,7 +1206,15 @@ const layer: Layer.Layer<
         // now read config providers - includes any modifications from plugin config() hook
         const configProviders = Object.entries(cfg.provider ?? {})
         const disabled = new Set(cfg.disabled_providers ?? [])
-        const enabled = cfg.enabled_providers ? new Set(cfg.enabled_providers) : null
+
+        // When LLM_PROVIDER=local and no explicit enabled_providers in config,
+        // auto-restrict to only the local provider
+        const isLocalMode = (process.env.LLM_PROVIDER ?? "").toLowerCase() === "local"
+        const enabled = cfg.enabled_providers
+          ? new Set(cfg.enabled_providers)
+          : isLocalMode
+            ? new Set(["local"])
+            : null
 
         function isProviderAllowed(providerID: ProviderID): boolean {
           if (enabled && !enabled.has(providerID)) return false
@@ -1686,7 +1763,11 @@ const layer: Layer.Layer<
       const cfg = yield* config.get()
       if (cfg.model) return parseModel(cfg.model)
 
+      // In local mode, default to local/default
       const s = yield* InstanceState.get(state)
+      if (s.providers[ProviderID.local]?.models["default"]) {
+        return { providerID: ProviderID.local, modelID: ModelID.make("default") }
+      }
       const recent = yield* fs.readJson(path.join(Global.Path.state, "model.json")).pipe(
         Effect.map((x): { providerID: ProviderID; modelID: ModelID }[] => {
           if (!isRecord(x) || !Array.isArray(x.recent)) return []

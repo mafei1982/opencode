@@ -31,7 +31,9 @@
     "electron-updater": "^6",
     "electron-window-state": "^5.0.3",
     "drizzle-orm": "catalog:",
-    "marked": "^15"
+    "marked": "^15",
+    "node-llama-cpp": "file:../../vendor/node-llama-cpp-3.18.1.tgz",
+    "@node-llama-cpp/win-x64": "3.18.1"
   },
   "devDependencies": {
     "@actions/artifact": "4.0.0",

@@ -11,10 +11,10 @@ import { app, BrowserWindow } from "electron"
 
 import contextMenu from "electron-context-menu"
 
-import type { InitStep, ServerReadyData, SqliteMigrationProgress, WslConfig } from "../preload/types"
+import type { InitStep, LlmDownloadProgress, ServerReadyData, SqliteMigrationProgress, WslConfig } from "../preload/types"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
 import { CHANNEL, UPDATER_ENABLED } from "./constants"
-import { registerIpcHandlers, sendDeepLinks, sendMenuCommand, sendSqliteMigrationProgress } from "./ipc"
+import { registerIpcHandlers, sendDeepLinks, sendLlmDownloadProgress, sendMenuCommand, sendSqliteMigrationProgress } from "./ipc"
 import { initLogging } from "./logging"
 import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
@@ -291,6 +291,14 @@ const main = Effect.gen(function* () {
       if (mainWindow) sendSqliteMigrationProgress(mainWindow, progress)
     })
 
+    initEmitter.on("llm", (progress: LlmDownloadProgress) => {
+      if (progress.type === "InProgress") setInitStep({ phase: "llm_downloading" })
+      if (progress.type === "Done") setInitStep({ phase: "done" })
+      if (progress.type === "Error") setInitStep({ phase: "done" })
+      if (overlay) sendLlmDownloadProgress(overlay, progress)
+      if (mainWindow) sendLlmDownloadProgress(mainWindow, progress)
+    })
+
     logger.log("spawning sidecar", { url })
     const { listener, health } = yield* Effect.promise(() =>
       spawnLocalServer(
@@ -305,6 +313,7 @@ const main = Effect.gen(function* () {
           needsMigration,
           userDataPath: app.getPath("userData"),
           onSqliteProgress: (progress) => initEmitter.emit("sqlite", progress),
+          onLlmProgress: (progress) => initEmitter.emit("llm", progress),
           onStdout: (message) => logger.log("sidecar stdout", { message }),
           onStderr: (message) => logger.warn("sidecar stderr", { message }),
           onExit: (code) => logger.warn("sidecar exited", { code }),
@@ -330,7 +339,7 @@ const main = Effect.gen(function* () {
     logger.log("loading task finished")
   }).pipe(Effect.forkChild)
 
-  if (needsMigration) {
+  {
     const show = yield* loadingTask.pipe(
       Fiber.await,
       Effect.timeout("1 second"),
