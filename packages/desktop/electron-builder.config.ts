@@ -27,7 +27,7 @@ const channel = (() => {
 })()
 
 const getBase = (): Configuration => ({
-  artifactName: "opencode-desktop-${os}-${arch}.${ext}",
+  artifactName: "ni-cic-code-desktop-${os}-${arch}.${ext}",
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -48,6 +48,9 @@ const getBase = (): Configuration => ({
       to: "llm.env",
       filter: ["llm.env"],
     },
+    ...(process.env.NI_CIC_TOOLS_DIR
+      ? [{ from: process.env.NI_CIC_TOOLS_DIR, to: "tools/" }]
+      : []),
   ],
   mac: {
     category: "public.app-category.developer-tools",
@@ -63,8 +66,8 @@ const getBase = (): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "OpenCode",
-    schemes: ["opencode"],
+    name: "NI CIC Code",
+    schemes: ["ni-cic-code"],
   },
   win: {
     icon: `resources/icons/icon.ico`,
@@ -94,29 +97,29 @@ function getConfig() {
     case "dev": {
       return {
         ...base,
-        appId: "ai.opencode.desktop.dev",
-        productName: "OpenCode Dev",
-        rpm: { packageName: "opencode-dev" },
+        appId: "com.ni.cic-code.desktop.dev",
+        productName: "NI CIC Code Dev",
+        rpm: { packageName: "ni-cic-code-dev" },
       }
     }
     case "beta": {
       return {
         ...base,
-        appId: "ai.opencode.desktop.beta",
-        productName: "OpenCode Beta",
-        protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
+        appId: "com.ni.cic-code.desktop.beta",
+        productName: "NI CIC Code Beta",
+        protocols: { name: "NI CIC Code Beta", schemes: ["ni-cic-code"] },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
-        rpm: { packageName: "opencode-beta" },
+        rpm: { packageName: "ni-cic-code-beta" },
       }
     }
     case "prod": {
       return {
         ...base,
-        appId: "ai.opencode.desktop",
-        productName: "OpenCode",
-        protocols: { name: "OpenCode", schemes: ["opencode"] },
+        appId: "com.ni.cic-code.desktop",
+        productName: "NI CIC Code",
+        protocols: { name: "NI CIC Code", schemes: ["ni-cic-code"] },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
-        rpm: { packageName: "opencode" },
+        rpm: { packageName: "ni-cic-code" },
       }
     }
   }

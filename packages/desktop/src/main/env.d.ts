@@ -28,3 +28,8 @@ declare module "virtual:opencode-server" {
   }
   export const bootstrap: typeof import("../../../opencode/dist/types/src/node").bootstrap
 }
+
+declare module "virtual:embedded-config" {
+  const config: Record<string, string> | undefined
+  export default config
+}

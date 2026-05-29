@@ -1,8 +1,10 @@
 import { drizzle } from "drizzle-orm/node-sqlite/driver"
 import * as fs from "node:fs"
 import * as http from "node:http"
+import * as os from "node:os"
 import * as path from "node:path"
 import * as tls from "node:tls"
+import embeddedConfig from "virtual:embedded-config"
 
 type NodeHttpWithEnvProxy = typeof http & {
   setGlobalProxyFromEnv: () => void
@@ -59,6 +61,7 @@ async function start(command: StartCommand) {
     loadBundledEnv()
     ensureModelDir()
     prepareSidecarEnv(command.password, command.userDataPath)
+    extractEmbeddedConfig()
     ensureLoopbackNoProxy()
     useSystemCertificates()
     useEnvProxy()
@@ -194,6 +197,38 @@ function ensureModelDir() {
   const drive = path.parse(appRoot).root
   process.env.LLM_MODEL_DIR = path.join(drive, ".opencode", "models")
   console.log(`[sidecar] LLM_MODEL_DIR auto-set to ${process.env.LLM_MODEL_DIR}`)
+}
+
+function extractEmbeddedConfig() {
+  if (!embeddedConfig) return
+
+  const tmpDir = path.join(os.tmpdir(), `ni-cic-code-embedded-${process.pid}`)
+  fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
+
+  for (const [relPath, content] of Object.entries(embeddedConfig)) {
+    const filePath = path.join(tmpDir, relPath)
+    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 })
+    fs.writeFileSync(filePath, content, { mode: 0o400 })
+  }
+
+  try {
+    fs.chmodSync(tmpDir, 0o500)
+  } catch {}
+
+  process.env.OPENCODE_EMBEDDED_CONFIG_DIR = tmpDir
+
+  const refsDir = path.join(tmpDir, "references")
+  if (fs.existsSync(refsDir))
+    process.env.NI_CIC_REFERENCES_DIR = refsDir
+
+  const cleanup = () => {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    } catch {}
+  }
+  process.on("exit", cleanup)
+  process.on("SIGTERM", cleanup)
+  process.on("SIGINT", cleanup)
 }
 
 function ensureLoopbackNoProxy() {
