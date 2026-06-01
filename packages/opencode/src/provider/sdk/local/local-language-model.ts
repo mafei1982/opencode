@@ -1,8 +1,12 @@
 /**
  * LanguageModelV3 adapter for node-llama-cpp.
  *
- * Wraps an in-process llama.cpp model as an AI SDK LanguageModelV3,
- * enabling seamless integration with the opencode provider system.
+ * Uses LlamaChat.generateResponse() which stops naturally when the model
+ * triggers function calls (stopReason: "functionCalls"), returning parsed
+ * calls without needing abort hacks or internal loops.
+ *
+ * Tool calls and results are stored as ChatModelFunctionCall objects
+ * so the Jinja chat template renders them correctly.
  */
 
 import type {
@@ -12,7 +16,7 @@ import type {
   LanguageModelV3StreamPart,
 } from "@ai-sdk/provider"
 import { generateId } from "@ai-sdk/provider-utils"
-import type { LlamaModel, LlamaChatSession, LlamaContext, LlamaChatResponseChunk } from "node-llama-cpp"
+import type { LlamaModel, LlamaChat, LlamaContext, LlamaChatResponseChunk, LlamaChatResponseFunctionCallParamsChunk } from "node-llama-cpp"
 import * as Log from "@opencode-ai/core/util/log"
 
 const log = Log.create({ service: "local-llm" })
@@ -20,7 +24,7 @@ const log = Log.create({ service: "local-llm" })
 export type LocalLanguageModelConfig = {
   model: LlamaModel
   context: LlamaContext
-  session: LlamaChatSession
+  chat: LlamaChat
   nCtx: number
   disableThinking: boolean
   samplingParams: {
@@ -34,98 +38,120 @@ export type LocalLanguageModelConfig = {
   modelFactory: () => Promise<{
     model: LlamaModel
     context: LlamaContext
-    session: LlamaChatSession
+    chat: LlamaChat
   }>
 }
 
-interface ParsedToolCall {
-  name: string
-  arguments: string
-}
+// Extract clean text from AI SDK V3 tool result.
+// part.result can be: {type,value} object, array of content parts, or string
+function extractToolResultText(result: unknown): string {
+  if (!result) return "(no output)"
+  if (typeof result === "string") return result
 
-function parseToolCalls(content: string): ParsedToolCall[] {
-  const pattern = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g
-  const calls: ParsedToolCall[] = []
-
-  let match: RegExpExecArray | null
-  while ((match = pattern.exec(content)) !== null) {
-    const raw = match[1].trim()
-
-    // Try JSON format: {"name": "fn", "arguments": {...}}
-    try {
-      const obj = JSON.parse(raw)
-      calls.push({
-        name: obj.name ?? "",
-        arguments: typeof obj.arguments === "object" ? JSON.stringify(obj.arguments) : String(obj.arguments ?? "{}"),
-      })
-      continue
-    } catch {
-      // Not JSON, try XML function format
-    }
-
-    // Try XML format: <function=name><parameter=key>value</parameter></function>
-    const fnMatch = /<function=([^>]+)>([\s\S]*?)<\/function>/.exec(raw)
-    if (fnMatch) {
-      const name = fnMatch[1]
-      const paramsRaw = fnMatch[2]
-      const params: Record<string, string> = {}
-      const paramPattern = /<parameter=([^>]+)>([\s\S]*?)<\/parameter>/g
-      let pm: RegExpExecArray | null
-      while ((pm = paramPattern.exec(paramsRaw)) !== null) {
-        params[pm[1]] = pm[2]
-      }
-      calls.push({ name, arguments: JSON.stringify(params) })
-      continue
-    }
-
-    log.warn("failed to parse tool_call block", { raw: raw.slice(0, 200) })
+  if (Array.isArray(result)) {
+    return result
+      .map((item: Record<string, unknown>) =>
+        item.type === "text" && typeof item.text === "string" ? item.text : JSON.stringify(item),
+      )
+      .join("\n") || "(no output)"
   }
 
-  return calls
+  if (typeof result === "object") {
+    const obj = result as Record<string, unknown>
+    if ("value" in obj) {
+      if (obj.type === "content" && Array.isArray(obj.value)) {
+        return (obj.value as Array<Record<string, unknown>>)
+          .map((item) =>
+            item.type === "text" && typeof item.text === "string" ? item.text : JSON.stringify(item),
+          )
+          .join("\n") || "(no output)"
+      }
+      if (typeof obj.value === "string") return obj.value || "(no output)"
+      return JSON.stringify(obj.value)
+    }
+    if ("text" in obj && obj.type === "text" && typeof obj.text === "string") {
+      return obj.text || "(no output)"
+    }
+  }
+
+  return JSON.stringify(result)
 }
 
-function convertPromptToText(prompt: LanguageModelV3CallOptions["prompt"]): string {
-  const parts: string[] = []
+// Convert AI SDK prompt to node-llama-cpp ChatHistoryItem format.
+// Tool calls/results are stored as ChatModelFunctionCall objects so the
+// Jinja template renders them correctly as <tool_call> and <tool_response>.
+function convertPromptToChatHistory(prompt: LanguageModelV3CallOptions["prompt"]) {
+  const history: Array<Record<string, unknown>> = []
+
   for (const msg of prompt) {
     if (msg.role === "system") {
-      parts.push(`System: ${msg.content}`)
+      history.push({ type: "system", text: msg.content })
     } else if (msg.role === "user") {
+      const texts: string[] = []
       for (const part of msg.content) {
-        if (part.type === "text") parts.push(`User: ${part.text}`)
+        if (part.type === "text") texts.push(part.text)
       }
+      history.push({ type: "user", text: texts.join("\n") })
     } else if (msg.role === "assistant") {
+      const response: unknown[] = []
       for (const part of msg.content) {
-        if (part.type === "text") parts.push(`Assistant: ${part.text}`)
-        if (part.type === "tool-call") parts.push(`Assistant: [tool_call: ${part.toolName}(${part.input})]`)
+        if (part.type === "text" && part.text.trim()) {
+          response.push(part.text)
+        }
+        if (part.type === "tool-call") {
+          const parsedInput = typeof part.input === "string"
+            ? (() => { try { return JSON.parse(part.input as string) } catch { return {} } })()
+            : (part.input ?? {})
+          response.push({
+            type: "functionCall",
+            name: part.toolName,
+            _callId: part.toolCallId,
+            params: parsedInput,
+            result: null,
+          })
+        }
       }
+      if (response.length > 0) history.push({ type: "model", response })
     } else if (msg.role === "tool") {
-      for (const part of msg.content) {
-        if (part.type === "tool-result")
-          parts.push(`Tool (${part.toolName}): ${typeof part.result === "string" ? part.result : JSON.stringify(part.result)}`)
+      // Match tool results to their functionCall objects in the last model message
+      const lastModel = history.findLast((h) => h.type === "model") as { response: Array<Record<string, unknown>> } | undefined
+      if (lastModel) {
+        for (const part of msg.content) {
+          if (part.type === "tool-result") {
+            const call = lastModel.response.find(
+              (r) => r.type === "functionCall" && r._callId === part.toolCallId && r.result === null,
+            )
+            if (call) {
+              call.result = extractToolResultText(part.output)
+            }
+          }
+        }
       }
     }
   }
-  return parts.join("\n")
+
+  // generateResponse expects history ending with a user message
+  const lastItem = history[history.length - 1]
+  if (!lastItem || lastItem.type !== "user") {
+    history.push({ type: "user", text: "Continue." })
+  }
+
+  return history
 }
 
-function buildToolPrompt(tools: LanguageModelV3CallOptions["tools"]): string {
-  if (!tools || tools.length === 0) return ""
-
-  const toolDefs = tools
-    .map((t) => {
-      const schema = t.inputSchema ? JSON.stringify(t.inputSchema) : "{}"
-      return `- ${t.name}: ${t.description ?? ""}\n  Parameters: ${schema}`
-    })
-    .join("\n")
-
-  return (
-    "\n\nYou have access to the following tools. To call a tool, respond with a <tool_call> block:\n" +
-    "<tool_call>\n" +
-    '{"name": "tool_name", "arguments": {"param": "value"}}\n' +
-    "</tool_call>\n\n" +
-    "Available tools:\n" +
-    toolDefs
-  )
+// Build ChatModelFunctions from AI SDK tools (no handler — LlamaChat stops naturally).
+function buildChatModelFunctions(tools: LanguageModelV3CallOptions["tools"]) {
+  if (!tools || tools.length === 0) return undefined
+  const functions: Record<string, { description?: string; params?: object }> = {}
+  for (const tool of tools) {
+    if (tool.type !== "function") continue
+    functions[tool.name] = {
+      description: tool.description ?? "",
+      ...(tool.inputSchema ? { params: tool.inputSchema } : {}),
+    }
+  }
+  log.info("built chat model functions", { names: Object.keys(functions) })
+  return functions
 }
 
 export class LocalLanguageModel implements LanguageModelV3 {
@@ -146,41 +172,6 @@ export class LocalLanguageModel implements LanguageModelV3 {
     return {}
   }
 
-  private async runInference(text: string, abortSignal?: AbortSignal) {
-    const timeoutMs = this.config.inferenceTimeout * 1000
-    const maxRetries = this.config.inferenceRetries
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      const controller = new AbortController()
-      const signals: AbortSignal[] = [controller.signal]
-      if (abortSignal) signals.push(abortSignal)
-      if (timeoutMs > 0) signals.push(AbortSignal.timeout(timeoutMs))
-      const combined = AbortSignal.any(signals)
-
-      try {
-        return await this.config.session.promptWithMeta(text, {
-          signal: combined,
-          temperature: this.config.samplingParams.temperature,
-          topP: this.config.samplingParams.topP,
-          topK: this.config.samplingParams.topK,
-          minP: this.config.samplingParams.minP,
-        })
-      } catch (err: unknown) {
-        if (abortSignal?.aborted) throw err
-
-        const isTimeout =
-          err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError" || err.message.includes("timeout"))
-
-        if (!isTimeout || attempt >= maxRetries) throw err
-
-        log.warn("inference timeout, attempting recovery", { attempt, maxRetries })
-        await this.recoverAfterTimeout()
-      }
-    }
-
-    throw new Error("inference failed after all retries")
-  }
-
   private async recoverAfterTimeout() {
     if (this.recovering) return
     this.recovering = true
@@ -189,7 +180,7 @@ export class LocalLanguageModel implements LanguageModelV3 {
       const fresh = await this.config.modelFactory()
       this.config.model = fresh.model
       this.config.context = fresh.context
-      this.config.session = fresh.session
+      this.config.chat = fresh.chat
       log.info("=== TIMEOUT RECOVERY: Model reloaded successfully ===")
     } catch (err) {
       log.error("failed to reload model", { error: err })
@@ -199,170 +190,294 @@ export class LocalLanguageModel implements LanguageModelV3 {
   }
 
   async doGenerate(options: LanguageModelV3CallOptions) {
-    const toolPrompt = buildToolPrompt(options.tools)
-    const text = convertPromptToText(options.prompt) + toolPrompt
+    const history = convertPromptToChatHistory(options.prompt)
+    const functions = buildChatModelFunctions(options.tools)
 
-    const result = await this.runInference(text, options.abortSignal)
-    const content: LanguageModelV3Content[] = []
+    const lastUser = [...history].reverse().find((h) => h.type === "user") as { text?: string } | undefined
+    log.info("doGenerate request", {
+      historyItems: history.length,
+      lastUserChars: lastUser?.text?.length ?? 0,
+      toolCount: functions ? Object.keys(functions).length : 0,
+      disableThinking: this.config.disableThinking,
+      sampling: this.config.samplingParams,
+      inferenceTimeout: this.config.inferenceTimeout,
+      inferenceRetries: this.config.inferenceRetries,
+    })
 
-    // Extract reasoning segments and text from structured response
-    for (const item of result.response) {
-      if (typeof item === "string") {
-        if (item) content.push({ type: "text", text: item })
-        continue
-      }
-      if (item.type === "segment" && item.segmentType === "thought") {
-        if (item.text) content.push({ type: "reasoning", text: item.text })
-        continue
+    const timeoutMs = this.config.inferenceTimeout * 1000
+    const maxRetries = this.config.inferenceRetries
+    let result: { response: string; fullResponse: Array<unknown>; functionCalls?: Array<{ functionName: string; params: unknown }>; metadata: { stopReason: string } } | undefined
+
+    const startedAt = Date.now()
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const signals: AbortSignal[] = []
+      if (options.abortSignal) signals.push(options.abortSignal)
+      if (timeoutMs > 0) signals.push(AbortSignal.timeout(timeoutMs))
+      const signal = signals.length > 0 ? AbortSignal.any(signals) : undefined
+
+      try {
+        result = await (this.config.chat as any).generateResponse(
+          history,
+          {
+            signal,
+            temperature: this.config.samplingParams.temperature,
+            topP: this.config.samplingParams.topP,
+            topK: this.config.samplingParams.topK,
+            minP: this.config.samplingParams.minP,
+            ...(functions ? { functions: functions as any } : {}),
+          },
+        )
+        break
+      } catch (err: unknown) {
+        if (options.abortSignal?.aborted) throw err
+        const isTimeout = err instanceof Error &&
+          (err.name === "TimeoutError" || err.name === "AbortError" || err.message.includes("timeout"))
+        if (!isTimeout || attempt >= maxRetries) throw err
+        log.warn("inference timeout, attempting recovery", { attempt, maxRetries })
+        await this.recoverAfterTimeout()
       }
     }
 
-    // Check for tool calls in the response text
-    const toolCalls = parseToolCalls(result.responseText)
-    if (toolCalls.length > 0) {
-      // Remove tool_call blocks from text parts
-      const filtered = content.filter((c) => {
-        if (c.type !== "text") return true
-        const stripped = c.text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "").trim()
-        if (!stripped) return false
-        c.text = stripped
-        return true
+    if (!result) throw new Error("inference failed after all retries")
+
+    const content: LanguageModelV3Content[] = []
+    const hasFunctionCalls = result.metadata.stopReason === "functionCalls" && result.functionCalls && result.functionCalls.length > 0
+
+    // Process fullResponse for text and thinking segments
+    let thoughtChars = 0
+    let textChars = 0
+    for (const item of result.fullResponse) {
+      if (typeof item === "string" && item.trim()) {
+        textChars += item.length
+        content.push({ type: "text", text: item })
+      } else if (typeof item === "object" && item !== null) {
+        const seg = item as { type?: string; segmentType?: string; text?: string }
+        if (seg.type === "segment" && seg.segmentType === "thought" && seg.text) {
+          thoughtChars += seg.text.length
+          content.push({ type: "reasoning", text: seg.text })
+        }
+      }
+    }
+
+    log.info("doGenerate response", {
+      stopReason: result.metadata.stopReason,
+      durationMs: Date.now() - startedAt,
+      thoughtChars,
+      textChars,
+      responseChars: result.response?.length ?? 0,
+      functionCalls: hasFunctionCalls ? result.functionCalls!.map((c) => c.functionName) : [],
+    })
+    if (result.metadata.stopReason === "maxTokens") {
+      log.warn("doGenerate hit maxTokens without natural stop (possible loop / runaway thinking)", {
+        thoughtChars,
+        textChars,
       })
-      content.length = 0
-      content.push(...filtered)
-      for (const call of toolCalls) {
+    }
+
+    // Add function calls from result
+    if (hasFunctionCalls) {
+      for (const call of result.functionCalls!) {
         content.push({
           type: "tool-call",
           toolCallId: `call_${generateId()}`,
-          toolName: call.name,
-          input: call.arguments,
+          toolName: call.functionName,
+          input: JSON.stringify(call.params),
         })
       }
     }
 
-    // Ensure at least one text part
-    if (!content.some((c) => c.type === "text")) {
-      content.push({ type: "text", text: result.responseText })
+    if (content.length === 0) {
+      content.push({ type: "text", text: result.response || "(empty response)" })
     }
 
     return {
       content,
-      finishReason: { unified: "stop" as const, raw: result.stopReason },
-      usage: {
-        inputTokens: { total: undefined },
-        outputTokens: { total: undefined },
+      finishReason: {
+        unified: hasFunctionCalls ? ("tool-calls" as const) : ("stop" as const),
+        raw: result.metadata.stopReason,
       },
-      request: { body: text },
+      usage: { inputTokens: { total: undefined, noCache: undefined, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: undefined, text: undefined, reasoning: undefined } },
+      request: { body: "" },
       response: {
         id: generateId(),
         modelId: this.modelId,
         headers: {},
-        body: result.responseText,
+        body: result.response || "",
       },
       warnings: [],
     }
   }
 
   async doStream(options: LanguageModelV3CallOptions) {
-    const toolPrompt = buildToolPrompt(options.tools)
-    const text = convertPromptToText(options.prompt) + toolPrompt
-
+    const history = convertPromptToChatHistory(options.prompt)
+    const functions = buildChatModelFunctions(options.tools)
     const config = this.config
     const modelId = this.modelId
+
+    const lastUser = [...history].reverse().find((h) => h.type === "user") as { text?: string } | undefined
+    log.info("doStream request", {
+      historyItems: history.length,
+      lastUserChars: lastUser?.text?.length ?? 0,
+      toolCount: functions ? Object.keys(functions).length : 0,
+      disableThinking: config.disableThinking,
+      sampling: config.samplingParams,
+    })
 
     const outputStream = new ReadableStream<LanguageModelV3StreamPart>({
       async start(controller) {
         controller.enqueue({ type: "stream-start", warnings: [] })
 
+        let activeReasoningId: string | undefined
+        let activeTextId: string | undefined
+        const toolInputIds = new Map<number, { callId: string; toolName: string }>()
+
+        // Diagnostics for loop / runaway-thinking detection
+        const startedAt = Date.now()
+        let firstTokenAt: number | undefined
+        let thoughtChars = 0
+        let textChars = 0
+        let chunkCount = 0
+
         try {
-          let fullResponse = ""
-          const abortController = new AbortController()
-          const signals: AbortSignal[] = [abortController.signal]
-          if (options.abortSignal) signals.push(options.abortSignal)
-          const combined = AbortSignal.any(signals)
-
-          // Track segment state
-          let activeReasoningId: string | undefined
-          let activeTextId: string | undefined
-
-          const result = await config.session.promptWithMeta(text, {
-            signal: combined,
-            temperature: config.samplingParams.temperature,
-            topP: config.samplingParams.topP,
-            topK: config.samplingParams.topK,
-            minP: config.samplingParams.minP,
-            onResponseChunk(chunk: LlamaChatResponseChunk) {
-              if (chunk.type === "segment" && chunk.segmentType === "thought") {
-                // Close any open text segment before reasoning
-                if (activeTextId) {
-                  controller.enqueue({ type: "text-end", id: activeTextId })
-                  activeTextId = undefined
-                }
-                if (chunk.segmentStartTime) {
-                  activeReasoningId = generateId()
-                  controller.enqueue({ type: "reasoning-start", id: activeReasoningId })
-                }
-                if (chunk.text && activeReasoningId) {
-                  controller.enqueue({ type: "reasoning-delta", id: activeReasoningId, delta: chunk.text })
-                }
-                if (chunk.segmentEndTime && activeReasoningId) {
-                  controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
-                  activeReasoningId = undefined
-                }
-              } else {
-                // Close any open reasoning segment before text
-                if (activeReasoningId) {
-                  controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
-                  activeReasoningId = undefined
-                }
-                if (chunk.text) {
+          const result: any = await (config.chat as any).generateResponse(
+            history,
+            {
+              signal: options.abortSignal,
+              temperature: config.samplingParams.temperature,
+              topP: config.samplingParams.topP,
+              topK: config.samplingParams.topK,
+              minP: config.samplingParams.minP,
+              ...(functions ? { functions: functions as any } : {}),
+              onResponseChunk(chunk: LlamaChatResponseChunk) {
+                chunkCount++
+                if (firstTokenAt === undefined) firstTokenAt = Date.now()
+                if (chunk.type === "segment" && chunk.segmentType === "thought") {
+                  if (chunk.text) thoughtChars += chunk.text.length
+                  if (activeTextId) {
+                    controller.enqueue({ type: "text-end", id: activeTextId })
+                    activeTextId = undefined
+                  }
+                  if ((chunk as any).segmentStartTime) {
+                    activeReasoningId = generateId()
+                    controller.enqueue({ type: "reasoning-start", id: activeReasoningId })
+                  }
+                  if (chunk.text && activeReasoningId) {
+                    controller.enqueue({ type: "reasoning-delta", id: activeReasoningId, delta: chunk.text })
+                  }
+                  if ((chunk as any).segmentEndTime && activeReasoningId) {
+                    controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
+                    activeReasoningId = undefined
+                  }
+                } else if (chunk.text) {
+                  textChars += chunk.text.length
+                  if (activeReasoningId) {
+                    controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
+                    activeReasoningId = undefined
+                  }
                   if (!activeTextId) {
                     activeTextId = generateId()
                     controller.enqueue({ type: "text-start", id: activeTextId })
                   }
-                  fullResponse += chunk.text
                   controller.enqueue({ type: "text-delta", id: activeTextId, delta: chunk.text })
                 }
-              }
+              },
+              ...(functions ? {
+                onFunctionCallParamsChunk(chunk: LlamaChatResponseFunctionCallParamsChunk) {
+                  // Close open text/reasoning when first function call starts
+                  if (toolInputIds.size === 0) {
+                    if (activeTextId) {
+                      controller.enqueue({ type: "text-end", id: activeTextId })
+                      activeTextId = undefined
+                    }
+                    if (activeReasoningId) {
+                      controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
+                      activeReasoningId = undefined
+                    }
+                  }
+
+                  if (!toolInputIds.has(chunk.callIndex)) {
+                    const callId = `call_${generateId()}`
+                    toolInputIds.set(chunk.callIndex, { callId, toolName: chunk.functionName })
+                    controller.enqueue({ type: "tool-input-start", id: callId, toolName: chunk.functionName })
+                  }
+                  const info = toolInputIds.get(chunk.callIndex)!
+                  controller.enqueue({ type: "tool-input-delta", id: info.callId, delta: chunk.paramsChunk })
+                },
+              } : {}),
             },
-          })
+          )
 
           // Close any open segments
-          if (activeReasoningId) {
-            controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
-          }
-          if (activeTextId) {
-            controller.enqueue({ type: "text-end", id: activeTextId })
+          if (activeReasoningId) controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
+          if (activeTextId) controller.enqueue({ type: "text-end", id: activeTextId })
+
+          const hasFunctionCalls = result.metadata?.stopReason === "functionCalls" && result.functionCalls?.length > 0
+
+          log.info("doStream response", {
+            stopReason: result.metadata?.stopReason ?? "unknown",
+            durationMs: Date.now() - startedAt,
+            timeToFirstTokenMs: firstTokenAt ? firstTokenAt - startedAt : undefined,
+            chunkCount,
+            thoughtChars,
+            textChars,
+            functionCalls: hasFunctionCalls ? result.functionCalls.map((c: { functionName: string }) => c.functionName) : [],
+          })
+          if (result.metadata?.stopReason === "maxTokens") {
+            log.warn("doStream hit maxTokens without natural stop (possible loop / runaway thinking)", {
+              thoughtChars,
+              textChars,
+              sampling: config.samplingParams,
+            })
           }
 
-          // Check for tool calls in final text
-          const toolCalls = parseToolCalls(fullResponse)
-          for (const call of toolCalls) {
-            controller.enqueue({
-              type: "tool-call",
-              toolCallId: `call_${generateId()}`,
-              toolName: call.name,
-              input: call.arguments,
-            })
+          // Emit tool calls from result
+          if (hasFunctionCalls) {
+            for (const call of result.functionCalls) {
+              const existing = [...toolInputIds.values()].find((v) => v.toolName === call.functionName)
+              if (existing) {
+                controller.enqueue({ type: "tool-input-end", id: existing.callId })
+                controller.enqueue({
+                  type: "tool-call",
+                  toolCallId: existing.callId,
+                  toolName: call.functionName,
+                  input: JSON.stringify(call.params),
+                })
+              } else {
+                const callId = `call_${generateId()}`
+                controller.enqueue({ type: "tool-input-start", id: callId, toolName: call.functionName })
+                controller.enqueue({ type: "tool-input-delta", id: callId, delta: JSON.stringify(call.params) })
+                controller.enqueue({ type: "tool-input-end", id: callId })
+                controller.enqueue({
+                  type: "tool-call",
+                  toolCallId: callId,
+                  toolName: call.functionName,
+                  input: JSON.stringify(call.params),
+                })
+              }
+            }
           }
 
           controller.enqueue({
             type: "finish",
-            finishReason: { unified: "stop", raw: result.stopReason },
-            usage: {
-              inputTokens: { total: undefined },
-              outputTokens: { total: undefined },
+            finishReason: {
+              unified: hasFunctionCalls ? "tool-calls" : "stop",
+              raw: result.metadata?.stopReason ?? "unknown",
             },
+            usage: { inputTokens: { total: undefined, noCache: undefined, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: undefined, text: undefined, reasoning: undefined } },
             providerMetadata: {},
-            response: {
-              id: generateId(),
-              modelId,
-              headers: {},
-              body: result.responseText,
-            },
           })
           controller.close()
         } catch (err) {
+          log.error("doStream inference error", {
+            error: err instanceof Error ? err.message : String(err),
+            durationMs: Date.now() - startedAt,
+            thoughtChars,
+            textChars,
+            chunkCount,
+          })
+          // Close any open segments before error
+          if (activeReasoningId) controller.enqueue({ type: "reasoning-end", id: activeReasoningId })
+          if (activeTextId) controller.enqueue({ type: "text-end", id: activeTextId })
           controller.enqueue({
             type: "error",
             error: err instanceof Error ? err : new Error(String(err)),
@@ -374,10 +489,8 @@ export class LocalLanguageModel implements LanguageModelV3 {
 
     return {
       stream: outputStream,
-      request: { body: text },
-      response: {
-        headers: {},
-      },
+      request: { body: "" },
+      response: { headers: {} },
       warnings: [],
     }
   }

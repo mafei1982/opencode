@@ -842,8 +842,19 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           modelPath: env.LLM_MODEL_PATH,
           nCtx: env.LLM_N_CTX ? parseInt(env.LLM_N_CTX, 10) : undefined,
           nGpuLayers: env.LLM_N_GPU_LAYERS ? parseInt(env.LLM_N_GPU_LAYERS, 10) : undefined,
+          batchSize: env.LLM_BATCH_SIZE ? parseInt(env.LLM_BATCH_SIZE, 10) : undefined,
+          threads: env.LLM_THREADS ? parseInt(env.LLM_THREADS, 10) : undefined,
+          maxThreads: env.LLM_MAX_THREADS ? parseInt(env.LLM_MAX_THREADS, 10) : undefined,
+          sequences: env.LLM_SEQUENCES
+            ? parseInt(env.LLM_SEQUENCES, 10)
+            : env.LLM_MAX_CONCURRENCY
+              ? parseInt(env.LLM_MAX_CONCURRENCY, 10)
+              : undefined,
           cacheTypeK: env.LLM_CACHE_TYPE_K,
           cacheTypeV: env.LLM_CACHE_TYPE_V,
+          flashAttention: env.LLM_FLASH_ATTENTION ? env.LLM_FLASH_ATTENTION.toLowerCase() === "true" : undefined,
+          useMmap: env.LLM_USE_MMAP ? env.LLM_USE_MMAP.toLowerCase() === "true" : undefined,
+          useMlock: env.LLM_USE_MLOCK ? env.LLM_USE_MLOCK.toLowerCase() === "true" : undefined,
           disableThinking: (env.LLM_DISABLE_THINKING ?? "").toLowerCase() === "true",
           temperature: env.LLM_TEMPERATURE ? parseFloat(env.LLM_TEMPERATURE) : undefined,
           topP: env.LLM_TOP_P ? parseFloat(env.LLM_TOP_P) : undefined,

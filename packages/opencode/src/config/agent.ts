@@ -11,6 +11,9 @@ import * as ConfigMarkdown from "./markdown"
 import { ConfigModelID } from "./model-id"
 import { ConfigParse } from "./parse"
 import { ConfigPermission } from "./permission"
+import { ConfigVariable } from "./variable"
+import { existsSync } from "fs"
+import path from "path"
 
 const log = Log.create({ service: "config" })
 
@@ -105,6 +108,13 @@ export const Info = AgentSchema.pipe(
 export type Info = Schema.Schema.Type<typeof Info>
 
 export async function load(dir: string) {
+  // Auto-set NI_CIC_REFERENCES_DIR if a references/ subfolder exists and env is not already set
+  if (!process.env.NI_CIC_REFERENCES_DIR) {
+    const refsDir = path.join(dir, "references")
+    if (existsSync(refsDir)) {
+      process.env.NI_CIC_REFERENCES_DIR = refsDir
+    }
+  }
   const result: Record<string, Info> = {}
   for (const item of await Glob.scan("{agent,agents}/**/*.md", {
     cwd: dir,
@@ -129,7 +139,12 @@ export async function load(dir: string) {
     const config = {
       name,
       ...md.data,
-      prompt: md.content.trim(),
+      prompt: await ConfigVariable.substitute({
+        text: md.content.trim(),
+        type: "path",
+        path: item,
+        missing: "empty",
+      }),
     }
     result[config.name] = ConfigParse.schema(Info, config, item)
   }

@@ -3,7 +3,6 @@ import { defineConfig } from "electron-vite"
 import appPlugin from "@opencode-ai/app/vite"
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
-import { build as esbuild } from "esbuild"
 
 const channel = (() => {
   const raw = process.env.OPENCODE_CHANNEL
@@ -52,6 +51,7 @@ async function readDirRecursive(dir: string, base = ""): Promise<Record<string, 
 }
 
 async function bundleToolFile(filePath: string): Promise<string> {
+  const { build: esbuild } = await import("esbuild")
   const monorepoRoot = path.resolve(__dirname, "../..")
   const result = await esbuild({
     entryPoints: [filePath],

@@ -12,13 +12,18 @@
  */
 
 import fs from "fs"
+import os from "os"
 import path from "path"
 import * as Log from "@opencode-ai/core/util/log"
 
 const log = Log.create({ service: "gguf-resolver" })
 
 function getDefaultModelDir(): string {
-  return path.resolve(process.cwd(), "models")
+  if (process.platform === "win32") {
+    return path.join(path.parse(process.cwd()).root, ".opencode", "models")
+  }
+
+  return path.join(os.homedir(), ".opencode", "models")
 }
 
 function findInModelDir(modelDir: string, owner: string, repo: string, quantFilter: string): string | undefined {
@@ -46,7 +51,8 @@ function findInModelDir(modelDir: string, owner: string, repo: string, quantFilt
  *
  * Resolution order for HuggingFace specifiers:
  * 1. `LLM_MODEL_DIR` env override → look there first
- * 2. Implicit `models/` directory next to cwd
+ * 2. Default persistent model directory (`<drive>/.opencode/models` on Windows,
+ *    `~/.opencode/models` elsewhere)
  * 3. Auto-download from HuggingFace (dev mode only)
  */
 export async function resolveGgufPath(

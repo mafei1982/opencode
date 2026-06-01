@@ -39,8 +39,10 @@ import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
 import { drizzle } from "drizzle-orm/bun-sqlite"
 import { ensureProcessMetadata } from "@opencode-ai/core/util/opencode-process"
+import { loadEnvFiles } from "./util/env-file"
 
 const processMetadata = ensureProcessMetadata("main")
+const loadedEnvFiles = loadEnvFiles()
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -113,6 +115,7 @@ const cli = yargs(args)
       args: process.argv.slice(2),
       process_role: processMetadata.processRole,
       run_id: processMetadata.runID,
+      env_files: loadedEnvFiles,
     })
 
     const marker = path.join(Global.Path.data, "opencode.db")

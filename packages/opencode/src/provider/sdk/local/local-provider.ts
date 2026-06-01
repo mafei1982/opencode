@@ -17,6 +17,7 @@
 
 import type { LanguageModelV3 } from "@ai-sdk/provider"
 import * as Log from "@opencode-ai/core/util/log"
+import type { LastBuildOptions, LlamaContextOptions, LlamaModelOptions } from "node-llama-cpp"
 import { resolveGgufPath } from "./gguf-resolver"
 import { LocalLanguageModel } from "./local-language-model"
 
@@ -28,9 +29,15 @@ export interface LocalProviderOptions {
   modelPath?: string
   nCtx?: number
   nGpuLayers?: number
+  batchSize?: number
+  threads?: number
+  maxThreads?: number
+  sequences?: number
   cacheTypeK?: string
   cacheTypeV?: string
   flashAttention?: boolean
+  useMmap?: boolean
+  useMlock?: boolean
   disableThinking?: boolean
   temperature?: number
   topP?: number
@@ -46,31 +53,79 @@ interface LocalProviderSDK {
 
 async function createModelInstance(
   ggufPath: string,
-  nCtx: number,
-  nGpuLayers: number,
-  cacheTypeK?: string,
-  cacheTypeV?: string,
-  flashAttention?: boolean,
+  options: {
+    nCtx: number
+    nGpuLayers: number
+    batchSize?: number
+    threads?: number
+    maxThreads?: number
+    sequences?: number
+    cacheTypeK?: string
+    cacheTypeV?: string
+    flashAttention?: boolean
+    useMmap?: boolean
+    useMlock?: boolean
+  },
 ) {
-  const { getLlama, LlamaChatSession } = await import("node-llama-cpp")
+  const { getLlama, LlamaChat } = await import("node-llama-cpp")
+  const lastBuildOptions: LastBuildOptions | undefined = options.maxThreads === undefined
+    ? undefined
+    : { maxThreads: options.maxThreads }
+  const defaultContextKvCacheKeyType = options.cacheTypeK as LlamaModelOptions["experimentalDefaultContextKvCacheKeyType"] | undefined
+  const defaultContextKvCacheValueType = options.cacheTypeV as LlamaModelOptions["experimentalDefaultContextKvCacheValueType"] | undefined
+  const contextKvCacheKeyType = options.cacheTypeK as LlamaContextOptions["experimentalKvCacheKeyType"] | undefined
+  const contextKvCacheValueType = options.cacheTypeV as LlamaContextOptions["experimentalKvCacheValueType"] | undefined
 
-  const llama = await getLlama("lastBuild")
-  const model = await llama.loadModel({
+  const llama = await getLlama("lastBuild", lastBuildOptions)
+
+  const modelOptions: LlamaModelOptions = {
     modelPath: ggufPath,
-    gpuLayers: nGpuLayers === -1 ? "max" : nGpuLayers,
-    defaultContextFlashAttention: flashAttention,
-  })
-  const contextOpts: Record<string, unknown> = {
-    contextSize: nCtx,
-    flashAttention,
+    gpuLayers: options.nGpuLayers === -1 ? "max" : options.nGpuLayers,
+    ...(options.flashAttention !== undefined ? { defaultContextFlashAttention: options.flashAttention } : {}),
+    ...(options.useMmap !== undefined ? { useMmap: options.useMmap } : {}),
+    ...(options.useMlock !== undefined ? { useMlock: options.useMlock } : {}),
+    ...(defaultContextKvCacheKeyType ? { experimentalDefaultContextKvCacheKeyType: defaultContextKvCacheKeyType } : {}),
+    ...(defaultContextKvCacheValueType ? { experimentalDefaultContextKvCacheValueType: defaultContextKvCacheValueType } : {}),
   }
-  if (cacheTypeK) contextOpts.typeK = cacheTypeK
-  if (cacheTypeV) contextOpts.typeV = cacheTypeV
+  log.info("creating llama model", {
+    ggufPath,
+    gpuLayers: modelOptions.gpuLayers,
+    useMmap: modelOptions.useMmap,
+    useMlock: modelOptions.useMlock,
+    defaultContextFlashAttention: modelOptions.defaultContextFlashAttention,
+    defaultContextKvCacheKeyType: modelOptions.experimentalDefaultContextKvCacheKeyType,
+    defaultContextKvCacheValueType: modelOptions.experimentalDefaultContextKvCacheValueType,
+  })
+  const model = await llama.loadModel(modelOptions)
+  const contextOpts: LlamaContextOptions = {
+    contextSize: options.nCtx,
+    ...(options.batchSize !== undefined ? { batchSize: options.batchSize } : {}),
+    ...(options.threads !== undefined ? { threads: options.threads } : {}),
+    ...(options.sequences !== undefined ? { sequences: options.sequences } : {}),
+    ...(options.flashAttention !== undefined ? { flashAttention: options.flashAttention } : {}),
+  }
+  if (contextKvCacheKeyType) contextOpts.experimentalKvCacheKeyType = contextKvCacheKeyType
+  if (contextKvCacheValueType) contextOpts.experimentalKvCacheValueType = contextKvCacheValueType
+  log.info("creating llama context", {
+    requestedContextSize: contextOpts.contextSize,
+    batchSize: contextOpts.batchSize,
+    threads: contextOpts.threads,
+    sequences: contextOpts.sequences,
+    flashAttention: contextOpts.flashAttention,
+    kvCacheKeyType: contextOpts.experimentalKvCacheKeyType,
+    kvCacheValueType: contextOpts.experimentalKvCacheValueType,
+  })
   const context = await model.createContext(contextOpts)
-  log.info("context created", { contextSize: context.contextSize, flashAttention: context.flashAttention })
-  const session = new LlamaChatSession({ contextSequence: context.getSequence() })
+  log.info("context created", {
+    contextSize: context.contextSize,
+    batchSize: context.batchSize,
+    flashAttention: context.flashAttention,
+    kvCacheKeyType: context.kvCacheKeyType,
+    kvCacheValueType: context.kvCacheValueType,
+  })
+  const chat = new LlamaChat({ contextSequence: context.getSequence() })
 
-  return { model, context, session }
+  return { model, context, chat }
 }
 
 /**
@@ -88,37 +143,92 @@ export async function loadLocalModel(
   const modelPath = options?.modelPath ?? process.env.LLM_MODEL_PATH ?? "unsloth/Qwen3.5-35B-A3B-GGUF:Q3_K_M"
   const nCtx = options?.nCtx ?? parseInt(process.env.LLM_N_CTX ?? "262144", 10)
   const nGpuLayers = options?.nGpuLayers ?? parseInt(process.env.LLM_N_GPU_LAYERS ?? "-1", 10)
+  const batchSize = options?.batchSize ?? (process.env.LLM_BATCH_SIZE ? parseInt(process.env.LLM_BATCH_SIZE, 10) : undefined)
+  const threads = options?.threads ?? (process.env.LLM_THREADS ? parseInt(process.env.LLM_THREADS, 10) : undefined)
+  const maxThreads = options?.maxThreads ?? (process.env.LLM_MAX_THREADS ? parseInt(process.env.LLM_MAX_THREADS, 10) : undefined)
+  const sequences = options?.sequences ??
+    (process.env.LLM_SEQUENCES
+      ? parseInt(process.env.LLM_SEQUENCES, 10)
+      : process.env.LLM_MAX_CONCURRENCY
+        ? parseInt(process.env.LLM_MAX_CONCURRENCY, 10)
+        : undefined)
   const cacheTypeK = options?.cacheTypeK ?? process.env.LLM_CACHE_TYPE_K ?? undefined
   const cacheTypeV = options?.cacheTypeV ?? process.env.LLM_CACHE_TYPE_V ?? undefined
   const flashAttention = options?.flashAttention ?? (process.env.LLM_FLASH_ATTENTION ?? "true").toLowerCase() === "true"
+  const useMmap = options?.useMmap ?? (process.env.LLM_USE_MMAP ? process.env.LLM_USE_MMAP.toLowerCase() === "true" : undefined)
+  const useMlock = options?.useMlock ?? (process.env.LLM_USE_MLOCK ? process.env.LLM_USE_MLOCK.toLowerCase() === "true" : undefined)
   const disableThinking =
     options?.disableThinking ?? (process.env.LLM_DISABLE_THINKING ?? "").toLowerCase() === "true"
   const inferenceTimeout = options?.inferenceTimeout ?? parseInt(process.env.LLM_INFERENCE_TIMEOUT ?? "120", 10)
   const inferenceRetries = options?.inferenceRetries ?? parseInt(process.env.LLM_INFERENCE_RETRIES ?? "3", 10)
 
+  // IMPORTANT: node-llama-cpp defaults temperature to 0 (greedy decoding) when
+  // left undefined. Greedy decoding on reasoning models (Qwen-style) causes
+  // repetition loops and never-ending <think> segments. Apply the recommended
+  // thinking-model sampling defaults so the model converges. Still overridable
+  // via env (LLM_TEMPERATURE / LLM_TOP_P / LLM_TOP_K / LLM_MIN_P).
   const samplingParams = {
-    temperature: options?.temperature ?? (process.env.LLM_TEMPERATURE ? parseFloat(process.env.LLM_TEMPERATURE) : undefined),
-    topP: options?.topP ?? (process.env.LLM_TOP_P ? parseFloat(process.env.LLM_TOP_P) : undefined),
-    topK: options?.topK ?? (process.env.LLM_TOP_K ? parseInt(process.env.LLM_TOP_K, 10) : undefined),
-    minP: options?.minP ?? (process.env.LLM_MIN_P ? parseFloat(process.env.LLM_MIN_P) : undefined),
+    temperature: options?.temperature ?? (process.env.LLM_TEMPERATURE ? parseFloat(process.env.LLM_TEMPERATURE) : 0.6),
+    topP: options?.topP ?? (process.env.LLM_TOP_P ? parseFloat(process.env.LLM_TOP_P) : 0.95),
+    topK: options?.topK ?? (process.env.LLM_TOP_K ? parseInt(process.env.LLM_TOP_K, 10) : 20),
+    minP: options?.minP ?? (process.env.LLM_MIN_P ? parseFloat(process.env.LLM_MIN_P) : 0),
   }
+
+  log.info("resolved sampling params", samplingParams)
 
   log.info("resolving model path", { modelPath })
   const ggufPath = await resolveGgufPath(modelPath, onProgress)
 
-  log.info("loading local model", { ggufPath, nCtx, nGpuLayers, cacheTypeK, cacheTypeV, flashAttention })
-  const { model, context, session } = await createModelInstance(ggufPath, nCtx, nGpuLayers, cacheTypeK, cacheTypeV, flashAttention)
+  log.info("loading local model", {
+    ggufPath,
+    nCtx,
+    nGpuLayers,
+    batchSize,
+    threads,
+    maxThreads,
+    sequences,
+    cacheTypeK,
+    cacheTypeV,
+    flashAttention,
+    useMmap,
+    useMlock,
+  })
+  const { model, context, chat } = await createModelInstance(ggufPath, {
+    nCtx,
+    nGpuLayers,
+    batchSize,
+    threads,
+    maxThreads,
+    sequences,
+    cacheTypeK,
+    cacheTypeV,
+    flashAttention,
+    useMmap,
+    useMlock,
+  })
   log.info("local model loaded successfully")
 
   const modelFactory = async () => {
     log.info("re-creating model instance for recovery", { ggufPath, nCtx, nGpuLayers })
-    return createModelInstance(ggufPath, nCtx, nGpuLayers, cacheTypeK, cacheTypeV, flashAttention)
+    return createModelInstance(ggufPath, {
+      nCtx,
+      nGpuLayers,
+      batchSize,
+      threads,
+      maxThreads,
+      sequences,
+      cacheTypeK,
+      cacheTypeV,
+      flashAttention,
+      useMmap,
+      useMlock,
+    })
   }
 
   const lm = new LocalLanguageModel("default", {
     model,
     context,
-    session,
+    chat,
     nCtx,
     disableThinking,
     samplingParams,
@@ -161,7 +271,6 @@ export function createLocal(options?: LocalProviderOptions): LocalProviderSDK {
         specificationVersion: "v3",
         modelId: modelId || "default",
         provider: "local",
-        supportsStructuredOutputs: false,
         get supportedUrls() {
           return {}
         },
