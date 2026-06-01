@@ -27,6 +27,8 @@ declare module "virtual:opencode-server" {
     export const run: typeof import("../../../opencode/dist/types/src/node").JsonMigration.run
   }
   export const bootstrap: typeof import("../../../opencode/dist/types/src/node").bootstrap
+  export const loadLocalModel: typeof import("../../../opencode/dist/types/src/node").loadLocalModel
+  export const isLocalProviderEnabled: typeof import("../../../opencode/dist/types/src/node").isLocalProviderEnabled
 }
 
 declare module "virtual:embedded-config" {
