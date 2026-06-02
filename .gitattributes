@@ -1,0 +1,2 @@
+vendor/node-llama-cpp-*.tgz filter=lfs diff=lfs merge=lfs -text
+vendor/llama-cpp-server/*.dll filter=lfs diff=lfs merge=lfs -text
