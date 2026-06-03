@@ -50,6 +50,23 @@ async function readDirRecursive(dir: string, base = ""): Promise<Record<string, 
   return entries
 }
 
+async function copyServerAssets(dir: string, outDir: string, base = "") {
+  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+    const rel = base ? `${base}/${entry.name}` : entry.name
+    const source = path.join(dir, entry.name)
+    const target = path.join(outDir, rel)
+
+    if (entry.isDirectory()) {
+      await copyServerAssets(source, outDir, rel)
+      continue
+    }
+
+    if (!rel.endsWith(".wasm") && !rel.startsWith("provider/")) continue
+    await fs.mkdir(path.dirname(target), { recursive: true })
+    await fs.writeFile(target, await fs.readFile(source))
+  }
+}
+
 async function bundleToolFile(filePath: string): Promise<string> {
   const { build: esbuild } = await import("esbuild")
   const monorepoRoot = path.resolve(__dirname, "../..")
@@ -141,10 +158,7 @@ export default defineConfig({
       {
         name: "opencode:copy-server-assets",
         async writeBundle() {
-          for (const l of await fs.readdir(OPENCODE_SERVER_DIST)) {
-            if (!l.endsWith(".wasm")) continue
-            await fs.writeFile(`./out/main/chunks/${l}`, await fs.readFile(`${OPENCODE_SERVER_DIST}/${l}`))
-          }
+          await copyServerAssets(OPENCODE_SERVER_DIST, "./out/main/chunks")
         },
       },
       {
