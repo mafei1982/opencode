@@ -59,4 +59,13 @@ await Bun.build({
   },
 })
 
+const bundledLlamaServerSource = path.resolve(dir, "../../vendor/llama-cpp-server")
+const bundledLlamaServerTarget = path.join(dir, "dist", "node", "llama-cpp-server")
+
+if (await fs.promises.stat(bundledLlamaServerSource).then(() => true).catch(() => false)) {
+  await fs.promises.rm(bundledLlamaServerTarget, { recursive: true, force: true })
+  await fs.promises.cp(bundledLlamaServerSource, bundledLlamaServerTarget, { recursive: true })
+  console.log(`Bundled llama.cpp server: ${bundledLlamaServerSource} -> ${bundledLlamaServerTarget}`)
+}
+
 console.log("Build complete")

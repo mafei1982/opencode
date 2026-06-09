@@ -11,17 +11,17 @@ import { Flag } from "@opencode-ai/core/flag/flag"
 import { initProjectors } from "../../src/server/projectors"
 import { testEffect } from "../lib/effect"
 
-const original = Flag.OPENCODE_EXPERIMENTAL_WORKSPACES
+const original = Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES
 const it = testEffect(Layer.mergeAll(SyncEvent.defaultLayer, CrossSpawnSpawner.defaultLayer))
 
 beforeEach(() => {
   Database.close()
 
-  Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = true
+  Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = true
 })
 
 afterEach(() => {
-  Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = original
+  Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = original
 })
 
 describe("SyncEvent", () => {

@@ -74,6 +74,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     platform.platform !== "desktop" ||
     import.meta.env.VITE_OPENCODE_CHANNEL !== "beta" ||
     settings.general.showFileTree()
+  const showModelControls = () => platform.providerManagement !== false
 
   const idle = { type: "idle" as const }
   const status = () => sync.data.session_status[params.id ?? ""] ?? idle
@@ -257,6 +258,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   }
 
   const chooseModel = () => {
+    if (!showModelControls()) return
     void import("@/components/dialog-select-model").then((x) => {
       dialog.show(() => <x.DialogSelectModel model={local.model} />)
     })
@@ -519,6 +521,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       description: language.t("command.model.choose.description"),
       keybind: "mod+'",
       slash: "model",
+      hidden: !showModelControls(),
       onSelect: chooseModel,
     }),
     modelCommand({
@@ -526,7 +529,11 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       title: language.t("command.model.variant.cycle"),
       description: language.t("command.model.variant.cycle.description"),
       keybind: "shift+mod+d",
-      onSelect: () => local.model.variant.cycle(),
+      hidden: !showModelControls(),
+      onSelect: () => {
+        if (!showModelControls()) return
+        local.model.variant.cycle()
+      },
     }),
   ]
 

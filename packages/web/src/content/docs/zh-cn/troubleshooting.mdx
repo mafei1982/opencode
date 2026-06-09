@@ -11,7 +11,7 @@ description: 常见问题及其解决方法。
 
 日志文件写入位置：
 
-- **macOS/Linux**: `~/.local/share/opencode/log/`
+- **macOS/Linux**: `~/.local/share/flashcode/log/`
 - **Windows**: 按 `WIN+R` 并粘贴 `%USERPROFILE%\.local\share\opencode\log`
 
 日志文件以时间戳命名（例如 `2025-01-09T123456.log`），并保留最近的 10 个日志文件。
@@ -24,7 +24,7 @@ description: 常见问题及其解决方法。
 
 OpenCode 将会话数据和其他应用数据存储在磁盘上：
 
-- **macOS/Linux**: `~/.local/share/opencode/`
+- **macOS/Linux**: `~/.local/share/flashcode/`
 - **Windows**: 按 `WIN+R` 并粘贴 `%USERPROFILE%\.local\share\opencode`
 
 该目录包含：
@@ -57,9 +57,9 @@ OpenCode Desktop 会在后台运行一个本地 OpenCode 服务器（即 `openco
 
 打开你的全局配置文件，查找 `plugin` 键。
 
-- **macOS/Linux**: `~/.config/opencode/opencode.jsonc`（或 `~/.config/opencode/opencode.json`）
-- **macOS/Linux**（旧版安装）: `~/.local/share/opencode/opencode.jsonc`
-- **Windows**: 按 `WIN+R` 并粘贴 `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **macOS/Linux**: `~/.config/flashcode/flashcode.jsonc`（或 `~/.config/flashcode/flashcode.json`）
+- **macOS/Linux**（旧版安装）: `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows**: 按 `WIN+R` 并粘贴 `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 如果你配置了插件，请通过移除该键或将其设置为空数组来临时禁用它们：
 
@@ -75,10 +75,10 @@ OpenCode Desktop 会在后台运行一个本地 OpenCode 服务器（即 `openco
 OpenCode 还可以从磁盘加载本地插件。临时将这些插件移走（或重命名文件夹），然后重新启动桌面应用：
 
 - **全局插件**
-  - **macOS/Linux**: `~/.config/opencode/plugins/`
+  - **macOS/Linux**: `~/.config/flashcode/plugins/`
   - **Windows**: 按 `WIN+R` 并粘贴 `%USERPROFILE%\.config\opencode\plugins`
 - **项目插件**（仅当你使用了项目级配置时）
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 如果应用恢复正常，请逐个重新启用插件，找出导致问题的那个。
 
@@ -91,8 +91,8 @@ OpenCode 还可以从磁盘加载本地插件。临时将这些插件移走（�
 1. 完全退出 OpenCode Desktop。
 2. 删除缓存目录：
 
-- **macOS**: Finder -> `Cmd+Shift+G` -> 粘贴 `~/.cache/opencode`
-- **Linux**: 删除 `~/.cache/opencode`（或运行 `rm -rf ~/.cache/opencode`）
+- **macOS**: Finder -> `Cmd+Shift+G` -> 粘贴 `~/.cache/flashcode`
+- **Linux**: 删除 `~/.cache/flashcode`（或运行 `rm -rf ~/.cache/flashcode`）
 - **Windows**: 按 `WIN+R` 并粘贴 `%USERPROFILE%\.cache\opencode`
 
 3. 重新启动 OpenCode Desktop。
@@ -111,7 +111,7 @@ OpenCode Desktop 可以启动自己的本地服务器（默认行为），也可
 
 #### 从配置中移除 `server.port` / `server.hostname`
 
-如果你的 `opencode.json(c)` 包含 `server` 部分，请临时移除该部分并重新启动桌面应用。
+如果你的 `flashcode.json(c)` 包含 `server` 部分，请临时移除该部分并重新启动桌面应用。
 
 #### 检查环境变量
 
@@ -240,7 +240,7 @@ OpenCode Desktop 仅在以下情况下显示系统通知：
 2. 如果问题仍然存在，请尝试清除已存储的配置：
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
    在 Windows 上，按 `WIN+R` 并删除：`%USERPROFILE%\.local\share\opencode`
@@ -258,7 +258,7 @@ OpenCode Desktop 仅在以下情况下显示系统通知：
 1. 清除提供商包缓存：
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
    在 Windows 上，按 `WIN+R` 并删除：`%USERPROFILE%\.cache\opencode`

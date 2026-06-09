@@ -126,6 +126,8 @@ export default function Layout(props: ParentProps) {
   const command = useCommand()
   const theme = useTheme()
   const language = useLanguage()
+  const showSettings = createMemo(() => platform.showSettings !== false)
+  const manageProviders = createMemo(() => platform.providerManagement !== false)
   const initialDirectory = decode64(params.dir)
   const location = useLocation()
   const route = createMemo(() => {
@@ -1066,6 +1068,7 @@ export default function Layout(props: ParentProps) {
         id: "provider.connect",
         title: language.t("command.provider.connect"),
         category: language.t("command.category.provider"),
+        hidden: !manageProviders(),
         onSelect: () => connectProvider(),
       },
       {
@@ -1079,6 +1082,7 @@ export default function Layout(props: ParentProps) {
         title: language.t("command.settings.open"),
         category: language.t("command.category.settings"),
         keybind: "mod+comma",
+        hidden: !showSettings(),
         onSelect: () => openSettings(),
       },
       {
@@ -1218,6 +1222,7 @@ export default function Layout(props: ParentProps) {
   })
 
   function connectProvider() {
+    if (!manageProviders()) return
     const run = ++dialogRun
     void import("@/components/dialog-select-provider").then((x) => {
       if (dialogDead || dialogRun !== run) return
@@ -1234,6 +1239,7 @@ export default function Layout(props: ParentProps) {
   }
 
   function openSettings() {
+    if (!showSettings()) return
     const run = ++dialogRun
     void import("@/components/dialog-settings").then((x) => {
       if (dialogDead || dialogRun !== run) return
@@ -2310,7 +2316,10 @@ export default function Layout(props: ParentProps) {
         <div
           class="shrink-0 px-3 py-3"
           classList={{
-            hidden: store.gettingStartedDismissed || !(providers.all().length > 0 && providers.paid().length === 0),
+            hidden:
+              !manageProviders() ||
+              store.gettingStartedDismissed ||
+              !(providers.all().length > 0 && providers.paid().length === 0),
           }}
         >
           <div class="rounded-xl bg-background-base shadow-xs-border-base" data-component="getting-started">
@@ -2360,6 +2369,8 @@ export default function Layout(props: ParentProps) {
       settingsLabel={() => language.t("sidebar.settings")}
       settingsKeybind={() => command.keybind("settings.open")}
       onOpenSettings={openSettings}
+      showSettings={showSettings()}
+      showHelp={false}
       helpLabel={() => language.t("sidebar.help")}
       onOpenHelp={() => platform.openLink("https://opencode.ai/desktop-feedback")}
       renderPanel={() =>

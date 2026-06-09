@@ -1,4 +1,6 @@
 import { drizzle } from "drizzle-orm/node-sqlite/driver"
+import { EMBEDDED_CONFIG_KEY_ENV, encodeEmbeddedConfigDiskFile } from "../../../core/src/embedded-config"
+import { applyBundledToolsEnv, loadBundledEnv } from "./llm-config"
 import * as fs from "node:fs"
 import * as http from "node:http"
 import * as os from "node:os"
@@ -62,6 +64,8 @@ async function start(command: StartCommand) {
     ensureModelDir()
     prepareSidecarEnv(command.password, command.userDataPath)
     extractEmbeddedConfig()
+    const toolsDir = applyBundledToolsEnv()
+    if (toolsDir) console.log(`[sidecar] Using bundled tools from ${toolsDir}`)
     ensureLoopbackNoProxy()
     useSystemCertificates()
     useEnvProxy()
@@ -116,6 +120,21 @@ async function start(command: StartCommand) {
           parentPort.postMessage({ type: "llm", progress: { type: "Error", message: msg } })
         })
     }
+
+    if ((process.env.LLM_PROVIDER ?? "").toLowerCase() === "local_tcp") {
+      console.log("[sidecar] Starting local llama.cpp server...")
+      import("virtual:opencode-server")
+        .then(({ loadLocalTcpServer }) => loadLocalTcpServer())
+        .then(() => {
+          parentPort.postMessage({ type: "llm", progress: { type: "Done" } })
+          console.log("[sidecar] Local llama.cpp server is ready.")
+        })
+        .catch((llmError: unknown) => {
+          const msg = llmError instanceof Error ? llmError.message : String(llmError)
+          console.error("[sidecar] Failed to start local llama.cpp server, continuing without it:", llmError)
+          parentPort.postMessage({ type: "llm", progress: { type: "Error", message: msg } })
+        })
+    }
   } catch (error) {
     parentPort.postMessage({ type: "error", error: serializeError(error) })
     setImmediate(() => process.exit(1))
@@ -124,6 +143,10 @@ async function start(command: StartCommand) {
 
 async function stop() {
   try {
+    if ((process.env.LLM_PROVIDER ?? "").toLowerCase() === "local_tcp") {
+      const { stopLocalTcpServer } = await import("virtual:opencode-server")
+      await stopLocalTcpServer()
+    }
     await listener?.stop()
   } finally {
     listener = undefined
@@ -134,53 +157,10 @@ async function stop() {
 
 function prepareSidecarEnv(password: string, userDataPath: string) {
   Object.assign(process.env, {
-    OPENCODE_SERVER_USERNAME: "opencode",
-    OPENCODE_SERVER_PASSWORD: password,
+    FLASHCODE_SERVER_USERNAME: "opencode",
+    FLASHCODE_SERVER_PASSWORD: password,
     XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
   })
-}
-
-/**
- * Load a bundled `llm.env` file from the app's resources directory.
- *
- * During desktop app build, a `.env` file can be copied to `resources/llm.env`
- * (via `LLM_ENV_FILE` env var or manually). This function reads it at startup
- * and sets the environment variables — but does NOT override variables that
- * are already set (so runtime env takes precedence over bundled defaults).
- *
- * The file format is standard `.env`: KEY=VALUE lines, `#` comments, blank lines.
- */
-function loadBundledEnv() {
-  // In packaged app: process.resourcesPath (e.g. .../resources/)
-  // In dev mode: ../../resources/ relative to out/main/
-  const candidates = [
-    process.resourcesPath ? path.join(process.resourcesPath, "llm.env") : "",
-    path.resolve(__dirname, "../../resources/llm.env"),
-  ].filter(Boolean)
-
-  for (const envPath of candidates) {
-    if (!fs.existsSync(envPath)) continue
-
-    console.log(`[sidecar] Loading bundled LLM config from ${envPath}`)
-    const content = fs.readFileSync(envPath, "utf-8")
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith("#")) continue
-      const eqIdx = trimmed.indexOf("=")
-      if (eqIdx === -1) continue
-
-      const key = trimmed.slice(0, eqIdx).trim()
-      let value = trimmed.slice(eqIdx + 1).trim()
-      // Strip surrounding quotes
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
-        value = value.slice(1, -1)
-
-      // Don't override existing env vars — runtime env takes precedence
-      if (process.env[key] === undefined) process.env[key] = value
-    }
-
-    return
-  }
 }
 
 /**
@@ -192,34 +172,37 @@ function ensureModelDir() {
   const appRoot = process.resourcesPath
     ? path.dirname(process.resourcesPath)
     : path.resolve(__dirname, "../..")
-  // Put models at drive root (e.g. D:\.opencode\models) so they persist
+  // Put models at drive root (e.g. D:\.flashcode\models) so they persist
   // across app rebuilds — the old <app-root>/models got wiped by package:win
   const drive = path.parse(appRoot).root
-  process.env.LLM_MODEL_DIR = path.join(drive, ".opencode", "models")
+  process.env.LLM_MODEL_DIR = path.join(drive, ".flashcode", "models")
   console.log(`[sidecar] LLM_MODEL_DIR auto-set to ${process.env.LLM_MODEL_DIR}`)
 }
 
 function extractEmbeddedConfig() {
   if (!embeddedConfig) return
 
-  const tmpDir = path.join(os.tmpdir(), `ni-cic-code-embedded-${process.pid}`)
+  const tmpDir = path.join(os.tmpdir(), `flashcode-embedded-${process.pid}`)
   fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
+  process.env[EMBEDDED_CONFIG_KEY_ENV] = embeddedConfig.key
 
-  for (const [relPath, content] of Object.entries(embeddedConfig)) {
+  for (const [relPath, file] of Object.entries(embeddedConfig.files)) {
     const filePath = path.join(tmpDir, relPath)
     fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 })
-    fs.writeFileSync(filePath, content, { mode: 0o400 })
+    fs.writeFileSync(filePath, encodeEmbeddedConfigDiskFile(file), { mode: 0o400 })
   }
 
   try {
     fs.chmodSync(tmpDir, 0o500)
   } catch {}
 
-  process.env.OPENCODE_EMBEDDED_CONFIG_DIR = tmpDir
+  process.env.FLASHCODE_EMBEDDED_CONFIG_DIR = tmpDir
 
   const refsDir = path.join(tmpDir, "references")
-  if (fs.existsSync(refsDir))
+  if (fs.existsSync(refsDir)) {
+    process.env.FLASHCODE_REFERENCES_DIR = refsDir
     process.env.NI_CIC_REFERENCES_DIR = refsDir
+  }
 
   const cleanup = () => {
     try {

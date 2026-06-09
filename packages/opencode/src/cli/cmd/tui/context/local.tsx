@@ -471,7 +471,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         prune(evt.properties.info.id)
       })
 
-      if (Flag.OPENCODE_EXPERIMENTAL_SESSION_SWITCHING) {
+      if (Flag.FLASHCODE_EXPERIMENTAL_SESSION_SWITCHING) {
         createEffect(
           on(
             () => (sessionStore.ready && route.data.type === "session" ? route.data.sessionID : undefined),

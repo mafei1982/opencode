@@ -17,13 +17,14 @@ import {
 import * as Sentry from "@sentry/solid"
 import type { AsyncStorage } from "@solid-primitives/storage"
 import { MemoryRouter } from "@solidjs/router"
-import { createEffect, createResource, onCleanup, onMount, Show } from "solid-js"
+import { createEffect, createMemo, createResource, onCleanup, onMount, Show } from "solid-js"
 import { render } from "solid-js/web"
 import pkg from "../../package.json"
 import { initI18n, t } from "./i18n"
 import { webviewZoom } from "./webview-zoom"
 import "./styles.css"
 import { useTheme } from "@opencode-ai/ui/theme"
+import type { WindowConfig } from "../preload/types"
 
 const root = document.getElementById("root")
 if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
@@ -56,6 +57,11 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 void initI18n()
 
 const deepLinkEvent = "opencode:deep-link"
+const windowConfigFallback: WindowConfig = {
+  updaterEnabled: false,
+  showSettings: false,
+  providerManagement: false,
+}
 
 const emitDeepLinks = (urls: string[]) => {
   if (urls.length === 0) return
@@ -70,7 +76,7 @@ const listenForDeepLinks = () => {
   return window.api.onDeepLink((urls) => emitDeepLinks(urls))
 }
 
-const createPlatform = (): Platform => {
+const createPlatform = (windowConfig: WindowConfig): Platform => {
   const os = (() => {
     const ua = navigator.userAgent
     if (ua.includes("Mac")) return "macos"
@@ -131,6 +137,8 @@ const createPlatform = (): Platform => {
     platform: "desktop",
     os,
     version: pkg.version,
+    showSettings: windowConfig.showSettings,
+    providerManagement: windowConfig.providerManagement,
 
     async openDirectoryPickerDialog(opts) {
       const defaultPath = await wslHome()
@@ -189,13 +197,13 @@ const createPlatform = (): Platform => {
     storage,
 
     checkUpdate: async () => {
-      const config = await window.api.getWindowConfig().catch(() => ({ updaterEnabled: false }))
+      const config = await window.api.getWindowConfig().catch(() => windowConfigFallback)
       if (!config.updaterEnabled) return { updateAvailable: false }
       return window.api.checkUpdate()
     },
 
     updateAndRestart: async () => {
-      const config = await window.api.getWindowConfig().catch(() => ({ updaterEnabled: false }))
+      const config = await window.api.getWindowConfig().catch(() => windowConfigFallback)
       if (!config.updaterEnabled) return
       await window.api.installUpdate()
     },
@@ -276,11 +284,11 @@ window.api.onMenuCommand((id) => {
 listenForDeepLinks()
 
 render(() => {
-  const platform = createPlatform()
-  const [windowConfig] = createResource(() => window.api.getWindowConfig().catch(() => ({ updaterEnabled: false })))
+  const [windowConfig] = createResource(() => window.api.getWindowConfig().catch(() => windowConfigFallback))
+  const platform = createMemo(() => createPlatform(windowConfig.latest ?? windowConfigFallback))
   const loadLocale = async () => {
-    const current = await platform.storage?.("opencode.global.dat").getItem("language")
-    const legacy = current ? undefined : await platform.storage?.().getItem("language.v1")
+    const current = await platform().storage?.("opencode.global.dat").getItem("language")
+    const legacy = current ? undefined : await platform().storage?.().getItem("language.v1")
     const raw = current ?? legacy
     if (!raw) return
     const locale = raw.match(/"locale"\s*:\s*"([^"]+)"/)?.[1]
@@ -296,7 +304,7 @@ render(() => {
   const [sidecar] = createResource(() => window.api.awaitInitialization(() => undefined))
 
   const [defaultServer] = createResource(() =>
-    platform.getDefaultServer?.().then((url) => {
+    platform().getDefaultServer?.().then((url) => {
       if (url) return ServerConnection.key({ type: "http", http: { url } })
     }),
   )
@@ -322,7 +330,7 @@ render(() => {
     const link = (e.target as HTMLElement).closest("a.external-link") as HTMLAnchorElement | null
     if (link?.href) {
       e.preventDefault()
-      platform.openLink(link.href)
+      platform().openLink(link.href)
     }
   }
 
@@ -352,19 +360,16 @@ render(() => {
   })
 
   return (
-    <PlatformProvider value={platform}>
-      <AppBaseProviders locale={locale.latest}>
-        <Show
-          when={
-            !defaultServer.loading &&
-            !sidecar.loading &&
-            !windowConfig.loading &&
-            !windowCount.loading &&
-            !locale.loading
-          }
-        >
-          {(_) => {
-            return (
+    <Show
+      when={
+        !defaultServer.loading && !sidecar.loading && !windowConfig.loading && !windowCount.loading && !locale.loading
+      }
+    >
+      {(_) => {
+        const config = windowConfig.latest ?? windowConfigFallback
+        return (
+          <PlatformProvider value={platform()}>
+            <AppBaseProviders locale={locale.latest} defaultTheme={config.defaultTheme}>
               <AppInterface
                 defaultServer={defaultServer.latest ?? ServerConnection.Key.make("sidecar")}
                 servers={servers()}
@@ -372,10 +377,10 @@ render(() => {
               >
                 <Inner />
               </AppInterface>
-            )
-          }}
-        </Show>
-      </AppBaseProviders>
-    </PlatformProvider>
+            </AppBaseProviders>
+          </PlatformProvider>
+        )
+      }}
+    </Show>
   )
 }, root!)

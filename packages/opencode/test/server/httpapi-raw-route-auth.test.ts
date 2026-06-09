@@ -18,8 +18,8 @@ function app(input: { password?: string; username?: string }) {
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
-            OPENCODE_SERVER_PASSWORD: input.password,
-            OPENCODE_SERVER_USERNAME: input.username,
+            FLASHCODE_SERVER_PASSWORD: input.password,
+            FLASHCODE_SERVER_USERNAME: input.username,
           }),
         ),
       ),

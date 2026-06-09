@@ -10,6 +10,7 @@ import { useLocal } from "@/context/local"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
 import { ModelTooltip } from "./model-tooltip"
 import { useLanguage } from "@/context/language"
+import { usePlatform } from "@/context/platform"
 
 type ModelState = ReturnType<typeof useLocal>["model"]
 
@@ -18,6 +19,8 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
   const dialog = useDialog()
   const providers = useProviders()
   const language = useLanguage()
+  const platform = usePlatform()
+  const manageProviders = () => platform.providerManagement !== false
 
   const connect = (provider: string) => {
     void import("./dialog-connect-provider").then((x) => {
@@ -26,6 +29,7 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
   }
 
   const all = () => {
+    if (!manageProviders()) return
     void import("./dialog-select-provider").then((x) => {
       dialog.show(() => <x.DialogSelectProvider />)
     })
@@ -84,62 +88,64 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
           )}
         </List>
       </div>
-      <div class="px-1.5 pb-1.5">
-        <div class="w-full rounded-sm border border-border-weak-base bg-surface-raised-base">
-          <div class="w-full flex flex-col items-start gap-4 px-1.5 pt-4 pb-4">
-            <div class="px-2 text-14-medium text-text-base">{language.t("dialog.model.unpaid.addMore.title")}</div>
-            <div class="w-full">
-              <List
-                class="w-full px-0"
-                key={(x) => x?.id}
-                items={providers.popular}
-                activeIcon="plus-small"
-                sortBy={(a, b) => {
-                  if (popularProviders.includes(a.id) && popularProviders.includes(b.id))
-                    return popularProviders.indexOf(a.id) - popularProviders.indexOf(b.id)
-                  return a.name.localeCompare(b.name)
-                }}
-                onSelect={(x) => {
-                  if (!x) return
-                  connect(x.id)
-                }}
-              >
-                {(i) => (
-                  <div class="w-full flex items-center gap-x-3">
-                    <ProviderIcon data-slot="list-item-extra-icon" id={i.id} />
-                    <span>{i.name}</span>
-                    <Show when={i.id === "opencode"}>
-                      <div class="text-14-regular text-text-weak">{language.t("dialog.provider.opencode.tagline")}</div>
-                    </Show>
-                    <Show when={i.id === "opencode"}>
-                      <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-                    </Show>
-                    <Show when={i.id === "opencode-go"}>
-                      <>
-                        <div class="text-14-regular text-text-weak">
-                          {language.t("dialog.provider.opencodeGo.tagline")}
-                        </div>
+      <Show when={manageProviders()}>
+        <div class="px-1.5 pb-1.5">
+          <div class="w-full rounded-sm border border-border-weak-base bg-surface-raised-base">
+            <div class="w-full flex flex-col items-start gap-4 px-1.5 pt-4 pb-4">
+              <div class="px-2 text-14-medium text-text-base">{language.t("dialog.model.unpaid.addMore.title")}</div>
+              <div class="w-full">
+                <List
+                  class="w-full px-0"
+                  key={(x) => x?.id}
+                  items={providers.popular}
+                  activeIcon="plus-small"
+                  sortBy={(a, b) => {
+                    if (popularProviders.includes(a.id) && popularProviders.includes(b.id))
+                      return popularProviders.indexOf(a.id) - popularProviders.indexOf(b.id)
+                    return a.name.localeCompare(b.name)
+                  }}
+                  onSelect={(x) => {
+                    if (!x) return
+                    connect(x.id)
+                  }}
+                >
+                  {(i) => (
+                    <div class="w-full flex items-center gap-x-3">
+                      <ProviderIcon data-slot="list-item-extra-icon" id={i.id} />
+                      <span>{i.name}</span>
+                      <Show when={i.id === "opencode"}>
+                        <div class="text-14-regular text-text-weak">{language.t("dialog.provider.flashcode.tagline")}</div>
+                      </Show>
+                      <Show when={i.id === "opencode"}>
                         <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-                      </>
-                    </Show>
-                    <Show when={i.id === "anthropic"}>
-                      <div class="text-14-regular text-text-weak">{language.t("dialog.provider.anthropic.note")}</div>
-                    </Show>
-                  </div>
-                )}
-              </List>
-              <Button
-                variant="ghost"
-                class="w-full justify-start px-[11px] py-3.5 gap-4.5 text-14-medium"
-                icon="dot-grid"
-                onClick={all}
-              >
-                {language.t("dialog.provider.viewAll")}
-              </Button>
+                      </Show>
+                      <Show when={i.id === "opencode-go"}>
+                        <>
+                          <div class="text-14-regular text-text-weak">
+                            {language.t("dialog.provider.flashcodeGo.tagline")}
+                          </div>
+                          <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
+                        </>
+                      </Show>
+                      <Show when={i.id === "anthropic"}>
+                        <div class="text-14-regular text-text-weak">{language.t("dialog.provider.anthropic.note")}</div>
+                      </Show>
+                    </div>
+                  )}
+                </List>
+                <Button
+                  variant="ghost"
+                  class="w-full justify-start px-[11px] py-3.5 gap-4.5 text-14-medium"
+                  icon="dot-grid"
+                  onClick={all}
+                >
+                  {language.t("dialog.provider.viewAll")}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </Show>
     </Dialog>
   )
 }

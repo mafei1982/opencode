@@ -31,12 +31,12 @@ import { testEffect } from "../lib/effect"
 
 const testStateLayer = Layer.effectDiscard(
   Effect.gen(function* () {
-    const originalWorkspaces = Flag.OPENCODE_EXPERIMENTAL_WORKSPACES
+    const originalWorkspaces = Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES
     yield* Effect.promise(() => resetDatabase())
-    Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = true
+    Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = true
     yield* Effect.addFinalizer(() =>
       Effect.promise(async () => {
-        Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = originalWorkspaces
+        Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = originalWorkspaces
         await disposeAllInstances()
         await resetDatabase()
       }),

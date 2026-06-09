@@ -29,7 +29,7 @@ export type WebSearchProvider = Schema.Schema.Type<typeof WebSearchProviderSchem
 
 export function selectWebSearchProvider(
   sessionID: string,
-  flags = { exa: Flag.OPENCODE_ENABLE_EXA, parallel: Flag.OPENCODE_ENABLE_PARALLEL },
+  flags = { exa: Flag.FLASHCODE_ENABLE_EXA, parallel: Flag.FLASHCODE_ENABLE_PARALLEL },
 ): WebSearchProvider {
   const override = process.env.OPENCODE_WEBSEARCH_PROVIDER
   if (override === "exa" || override === "parallel") return override

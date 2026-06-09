@@ -25,13 +25,13 @@ const OPENCODE_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
 const SKILL_PATTERN = "**/SKILL.md"
 
 // Built-in skill that ships with opencode. The model's intuition for what an
-// opencode.json should look like is often wrong, and opencode hard-fails on
+// flashcode.json should look like is often wrong, and opencode hard-fails on
 // invalid config, so users hit cryptic startup errors. Loading this skill
 // when the model is asked to touch opencode's own config files gives it the
 // actual schemas instead of guesses.
 const CUSTOMIZE_OPENCODE_SKILL_NAME = "customize-opencode"
 const CUSTOMIZE_OPENCODE_SKILL_DESCRIPTION =
-  "Use ONLY when the user is editing or creating opencode's own configuration: opencode.json, opencode.jsonc, files under .opencode/, or files under ~/.config/opencode/. Also use when creating or fixing opencode agents, subagents, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring opencode itself."
+  "Use ONLY when the user is editing or creating opencode's own configuration: flashcode.json, flashcode.jsonc, files under .flashcode/, or files under ~/.config/flashcode/. Also use when creating or fixing opencode agents, subagents, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring opencode itself."
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -162,8 +162,8 @@ const discoverSkills = Effect.fnUntraced(function* (
   const state: ScanState = { matches: new Set(), dirs: new Set() }
 
   const externalDirs: string[] = []
-  if (!Flag.OPENCODE_DISABLE_EXTERNAL_SKILLS) {
-    if (!Flag.OPENCODE_DISABLE_CLAUDE_CODE_SKILLS) externalDirs.push(CLAUDE_EXTERNAL_DIR)
+  if (!Flag.FLASHCODE_DISABLE_EXTERNAL_SKILLS) {
+    if (!Flag.FLASHCODE_DISABLE_CLAUDE_CODE_SKILLS) externalDirs.push(CLAUDE_EXTERNAL_DIR)
     externalDirs.push(AGENTS_EXTERNAL_DIR)
 
     for (const dir of externalDirs) {

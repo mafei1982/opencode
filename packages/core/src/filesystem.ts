@@ -5,6 +5,7 @@ import * as NFS from "fs/promises"
 import { lookup } from "mime-types"
 import { Effect, FileSystem, Layer, Schema, Context } from "effect"
 import type { PlatformError } from "effect/PlatformError"
+import { maybeDecodeEmbeddedConfigText } from "./embedded-config"
 import { Glob } from "./util/glob"
 
 export namespace AppFileSystem {
@@ -44,14 +45,17 @@ export namespace AppFileSystem {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
 
+      const readFileString = Effect.fn("FileSystem.readFileString")(function* (path: string) {
+        const text = yield* fs.readFileString(path)
+        return maybeDecodeEmbeddedConfigText(text)
+      })
+
       const existsSafe = Effect.fn("FileSystem.existsSafe")(function* (path: string) {
         return yield* fs.exists(path).pipe(Effect.orElseSucceed(() => false))
       })
 
       const readFileStringSafe = Effect.fn("FileSystem.readFileStringSafe")(function* (path: string) {
-        return yield* fs
-          .readFileString(path)
-          .pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(undefined)))
+        return yield* readFileString(path).pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(undefined)))
       })
 
       const isDir = Effect.fn("FileSystem.isDir")(function* (path: string) {
@@ -80,7 +84,7 @@ export namespace AppFileSystem {
       })
 
       const readJson = Effect.fn("FileSystem.readJson")(function* (path: string) {
-        const text = yield* fs.readFileString(path)
+        const text = yield* readFileString(path)
         return JSON.parse(text)
       })
 
@@ -169,6 +173,7 @@ export namespace AppFileSystem {
 
       return Service.of({
         ...fs,
+        readFileString,
         existsSafe,
         readFileStringSafe,
         isDir,

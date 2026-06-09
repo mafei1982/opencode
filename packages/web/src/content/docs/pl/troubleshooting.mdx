@@ -11,7 +11,7 @@ Aby debugować problemy z opencode, zacznij od sprawdzenia dzienników i danych 
 
 Pliki logów są zapisywane w:
 
-- **macOS/Linux**: `~/.local/share/opencode/log/`
+- **macOS/Linux**: `~/.local/share/flashcode/log/`
 - **Windows**: Naciśnij `WIN+R` i wklej `%USERPROFILE%\.local\share\opencode\log`
 
 Nazwy plików dziennika zawierają znaczniki czasu (np. `2025-01-09T123456.log`) i przechowywanych jest 10 ostatnich plików dziennika.
@@ -24,7 +24,7 @@ Możesz ustawić poziom dziennika za pomocą opcji wiersza poleceń `--log-level
 
 opencode przechowuje dane sesji i inne dane aplikacji na dysku pod adresem:
 
-- **macOS/Linux**: `~/.local/share/opencode/`
+- **macOS/Linux**: `~/.local/share/flashcode/`
 - **Windows**: Naciśnij `WIN+R` i wklej `%USERPROFILE%\.local\share\opencode`
 
 Ten katalog zawiera:
@@ -57,9 +57,9 @@ Jeśli aplikacja komputerowa ulega awarii podczas uruchamiania, zawiesza się lu
 
 Otwórz globalny plik konfiguracyjny i poszukaj klucza `plugin`.
 
-- **macOS/Linux**: `~/.config/opencode/opencode.jsonc` (lub `~/.config/opencode/opencode.json`)
-- **macOS/Linux** (starsze instalacje): `~/.local/share/opencode/opencode.jsonc`
-- **Windows**: Naciśnij `WIN+R` i wklej `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **macOS/Linux**: `~/.config/flashcode/flashcode.jsonc` (lub `~/.config/flashcode/flashcode.json`)
+- **macOS/Linux** (starsze instalacje): `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows**: Naciśnij `WIN+R` i wklej `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 Jeśli masz skonfigurowane wtyczki, tymczasowo je wyłącz, usuwając klucz lub ustawiając go na pustą tablicę:
 
@@ -75,10 +75,10 @@ Jeśli masz skonfigurowane wtyczki, tymczasowo je wyłącz, usuwając klucz lub 
 opencode może także ładować lokalne wtyczki z dysku. Tymczasowo usuń je (lub zmień nazwę folderu) i uruchom ponownie aplikację komputerową:
 
 - **Wtyczki globalne**
-  - **macOS/Linux**: `~/.config/opencode/plugins/`
+  - **macOS/Linux**: `~/.config/flashcode/plugins/`
   - **Windows**: Naciśnij `WIN+R` i wklej `%USERPROFILE%\.config\opencode\plugins`
 - **Wtyczki projektowe** (tylko jeśli używasz konfiguracji dla poszczególnych projektów)
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 Jeśli aplikacja ponownie zacznie działać, włączaj ponownie wtyczki pojedynczo, aby dowiedzieć się, która powoduje problem.
 
@@ -91,8 +91,8 @@ Jeśli wyłączenie wtyczek nie pomoże (lub instalacja wtyczki utknęła), wycz
 1. Całkowicie zamknij opencode Desktop.
 2. Usuń katalog pamięci podręcznej:
 
-- **macOS**: Finder -> `Cmd+Shift+G` -> paste `~/.cache/opencode`
-- **Linux**: usuń `~/.cache/opencode` (lub uruchom `rm -rf ~/.cache/opencode`)
+- **macOS**: Finder -> `Cmd+Shift+G` -> paste `~/.cache/flashcode`
+- **Linux**: usuń `~/.cache/flashcode` (lub uruchom `rm -rf ~/.cache/flashcode`)
 - **Windows**: Naciśnij `WIN+R` i wklej `%USERPROFILE%\.cache\opencode`
 
 3. Uruchom ponownie opencode Desktop.
@@ -111,7 +111,7 @@ Na ekranie głównym kliknij nazwę serwera (z kropką stanu), aby otworzyć sel
 
 #### Usuń `server.port` / `server.hostname` ze swojej konfiguracji
 
-Jeśli Twój `opencode.json(c)` zawiera sekcję `server`, tymczasowo usuń ją i uruchom ponownie aplikację komputerową.
+Jeśli Twój `flashcode.json(c)` zawiera sekcję `server`, tymczasowo usuń ją i uruchom ponownie aplikację komputerową.
 
 #### Sprawdź zmienne środowiskowe
 
@@ -241,7 +241,7 @@ Aby rozwiązać ten problem:
 2. Jeśli problem będzie się powtarzał, spróbuj wyczyścić zapisaną konfigurację:
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
    W systemie Windows naciśnij `WIN+R` i usuń: `%USERPROFILE%\.local\share\opencode`
@@ -259,7 +259,7 @@ Aby rozwiązać problemy z pakietem dostawcy:
 1. Wyczyść pamięć podręczną pakietu dostawcy:
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
    W systemie Windows naciśnij `WIN+R` i usuń: `%USERPROFILE%\.cache\opencode`

@@ -11,7 +11,7 @@ Pour déboguer les problèmes avec OpenCode, commencez par vérifier les journau
 
 Les fichiers journaux sont écrits dans :
 
-- **macOS/Linux** : `~/.local/share/opencode/log/`
+- **macOS/Linux** : `~/.local/share/flashcode/log/`
 - **Windows** : appuyez sur `WIN+R` et collez `%USERPROFILE%\.local\share\opencode\log`
 
 Les fichiers journaux sont nommés avec des horodatages (par exemple, `2025-01-09T123456.log`) et les 10 fichiers journaux les plus récents sont conservés.
@@ -24,7 +24,7 @@ Vous pouvez définir le niveau de journalisation avec l'option de ligne de comma
 
 opencode stocke les données de session et autres données d'application sur le disque à l'emplacement :
 
-- **macOS/Linux** : `~/.local/share/opencode/`
+- **macOS/Linux** : `~/.local/share/flashcode/`
 - **Windows** : appuyez sur `WIN+R` et collez `%USERPROFILE%\.local\share\opencode`
 
 Ce répertoire contient :
@@ -57,9 +57,9 @@ Si l'application de bureau plante au lancement, se bloque ou se comporte étrang
 
 Ouvrez votre fichier de configuration global et recherchez une clé `plugin`.
 
-- **macOS/Linux** : `~/.config/opencode/opencode.jsonc` (ou `~/.config/opencode/opencode.json`)
-- **macOS/Linux** (anciennes installations) : `~/.local/share/opencode/opencode.jsonc`
-- **Windows** : appuyez sur `WIN+R` et collez `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **macOS/Linux** : `~/.config/flashcode/flashcode.jsonc` (ou `~/.config/flashcode/flashcode.json`)
+- **macOS/Linux** (anciennes installations) : `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows** : appuyez sur `WIN+R` et collez `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 Si vous avez configuré des plugins, désactivez-les temporairement en supprimant la clé ou en la définissant sur un tableau vide :
 
@@ -75,10 +75,10 @@ Si vous avez configuré des plugins, désactivez-les temporairement en suppriman
 OpenCode peut également charger des plugins locaux à partir du disque. Écartez-les temporairement (ou renommez le dossier) et redémarrez l'application de bureau :
 
 - **Plugins mondiaux**
-  - **macOS/Linux** : `~/.config/opencode/plugins/`
+  - **macOS/Linux** : `~/.config/flashcode/plugins/`
   - **Windows** : appuyez sur `WIN+R` et collez `%USERPROFILE%\.config\opencode\plugins`
 - **Plugins de projet** (uniquement si vous utilisez une configuration par projet)
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 Si l'application recommence à fonctionner, réactivez les plugins un par un pour trouver celui à l'origine du problème.
 
@@ -91,8 +91,8 @@ Si la désactivation des plugins ne résout pas le problème (ou si l'installati
 1. Quittez complètement OpenCode Desktop.
 2. Supprimez le répertoire cache :
 
-- **macOS** : Finder -> `Cmd+Shift+G` -> coller `~/.cache/opencode`
-- **Linux** : supprimez `~/.cache/opencode` (ou exécutez `rm -rf ~/.cache/opencode`)
+- **macOS** : Finder -> `Cmd+Shift+G` -> coller `~/.cache/flashcode`
+- **Linux** : supprimez `~/.cache/flashcode` (ou exécutez `rm -rf ~/.cache/flashcode`)
 - **Windows** : appuyez sur `WIN+R` et collez `%USERPROFILE%\.cache\opencode`
 
 3. Redémarrez le bureau OpenCode.
@@ -111,7 +111,7 @@ Depuis l'écran d'accueil, cliquez sur le nom du serveur (avec le point d'état)
 
 #### Supprimez `server.port` / `server.hostname` de votre configuration
 
-Si votre `opencode.json(c)` contient une section `server`, supprimez-la temporairement et redémarrez l'application de bureau.
+Si votre `flashcode.json(c)` contient une section `server`, supprimez-la temporairement et redémarrez l'application de bureau.
 
 #### Vérifier les variables d'environnement
 
@@ -241,7 +241,7 @@ Pour résoudre ce problème :
 2. Si le problème persiste, essayez d'effacer votre configuration stockée :
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
 Sur Windows, appuyez sur `WIN+R` et supprimez : `%USERPROFILE%\.local\share\opencode`
@@ -259,7 +259,7 @@ Pour résoudre les problèmes liés au package du fournisseur :
 1. Videz le cache du package du fournisseur :
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
 Sur Windows, appuyez sur `WIN+R` et supprimez : `%USERPROFILE%\.cache\opencode`

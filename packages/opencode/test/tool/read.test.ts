@@ -88,14 +88,14 @@ const glob = (p: string) =>
 const experimentalScout = <A, E, R>(self: Effect.Effect<A, E, R>) =>
   Effect.acquireUseRelease(
     Effect.sync(() => {
-      const previous = Flag.OPENCODE_EXPERIMENTAL_SCOUT
-      Flag.OPENCODE_EXPERIMENTAL_SCOUT = true
+      const previous = Flag.FLASHCODE_EXPERIMENTAL_SCOUT
+      Flag.FLASHCODE_EXPERIMENTAL_SCOUT = true
       return previous
     }),
     () => self,
     (previous) =>
       Effect.sync(() => {
-        Flag.OPENCODE_EXPERIMENTAL_SCOUT = previous
+        Flag.FLASHCODE_EXPERIMENTAL_SCOUT = previous
       }),
   )
 const githubBase = <A, E, R>(url: string, self: Effect.Effect<A, E, R>) =>

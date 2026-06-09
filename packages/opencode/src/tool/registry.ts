@@ -24,6 +24,7 @@ import { ProviderID, type ModelID } from "../provider/schema"
 import { WebSearchTool } from "./websearch"
 import { RepoCloneTool } from "./repo_clone"
 import { RepoOverviewTool } from "./repo_overview"
+import { resolveEmbeddedConfigModuleImport } from "@opencode-ai/core/embedded-config"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import * as Log from "@opencode-ai/core/util/log"
 import { LspTool } from "./lsp"
@@ -55,7 +56,7 @@ const log = Log.create({ service: "tool.registry" })
 
 export function webSearchEnabled(
   providerID: ProviderID,
-  flags = { exa: Flag.OPENCODE_ENABLE_EXA, parallel: Flag.OPENCODE_ENABLE_PARALLEL },
+  flags = { exa: Flag.FLASHCODE_ENABLE_EXA, parallel: Flag.FLASHCODE_ENABLE_PARALLEL },
 ) {
   return providerID === ProviderID.opencode || flags.exa || flags.parallel
 }
@@ -185,16 +186,15 @@ export const layer: Layer.Layer<
         }
 
         const dirs = yield* config.directories()
-        if (Flag.OPENCODE_EMBEDDED_CONFIG_DIR) dirs.push(Flag.OPENCODE_EMBEDDED_CONFIG_DIR)
+        if (Flag.FLASHCODE_EMBEDDED_CONFIG_DIR) dirs.push(Flag.FLASHCODE_EMBEDDED_CONFIG_DIR)
         const matches = dirs.flatMap((dir) =>
           Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: dir, absolute: true, dot: true, symlink: true }),
         )
         if (matches.length) yield* config.waitForDependencies()
         for (const match of matches) {
           const namespace = path.basename(match, path.extname(match))
-          // `match` is an absolute filesystem path from `Glob.scanSync(..., { absolute: true })`.
-          // Import it as `file://` so Node on Windows accepts the dynamic import.
-          const mod = yield* Effect.promise(() => import(pathToFileURL(match).href))
+          const spec = yield* Effect.promise(() => resolveEmbeddedConfigModuleImport(pathToFileURL(match).href))
+          const mod = yield* Effect.promise(() => import(spec))
           for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
             custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
           }
@@ -209,7 +209,7 @@ export const layer: Layer.Layer<
 
         yield* config.get()
         const questionEnabled =
-          ["app", "cli", "desktop"].includes(Flag.OPENCODE_CLIENT) || Flag.OPENCODE_ENABLE_QUESTION_TOOL
+          ["app", "cli", "desktop"].includes(Flag.FLASHCODE_CLIENT) || Flag.FLASHCODE_ENABLE_QUESTION_TOOL
 
         const tool = yield* Effect.all({
           invalid: Tool.init(invalid),
@@ -247,11 +247,11 @@ export const layer: Layer.Layer<
             tool.fetch,
             tool.todo,
             tool.search,
-            ...(Flag.OPENCODE_EXPERIMENTAL_SCOUT ? [tool.repo_clone, tool.repo_overview] : []),
+            ...(Flag.FLASHCODE_EXPERIMENTAL_SCOUT ? [tool.repo_clone, tool.repo_overview] : []),
             tool.skill,
             tool.patch,
-            ...(Flag.OPENCODE_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
-            ...(Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [tool.plan] : []),
+            ...(Flag.FLASHCODE_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
+            ...(Flag.FLASHCODE_EXPERIMENTAL_PLAN_MODE && Flag.FLASHCODE_CLIENT === "cli" ? [tool.plan] : []),
           ],
           task: tool.task,
           read: tool.read,

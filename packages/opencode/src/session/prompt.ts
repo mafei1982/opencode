@@ -384,7 +384,7 @@ export const layer = Layer.effect(
       const userMessage = input.messages.findLast((msg) => msg.info.role === "user")
       if (!userMessage) return input.messages
 
-      if (!Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE) {
+      if (!Flag.FLASHCODE_EXPERIMENTAL_PLAN_MODE) {
         if (input.agent.name === "plan") {
           userMessage.parts.push({
             id: PartID.ascending(),
@@ -526,6 +526,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       const tools: Record<string, AITool> = {}
       const run = yield* runner()
       const promptOps = yield* ops()
+      const promptMessages = MessageV2.stripPromptMetadata(input.messages)
 
       const context = (args: any, options: ToolExecutionOptions): Tool.Context => ({
         sessionID: input.session.id,
@@ -534,7 +535,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         callID: options.toolCallId,
         extra: { model: input.model, bypassAgentCheck: input.bypassAgentCheck, promptOps },
         agent: input.agent.name,
-        messages: input.messages,
+        messages: promptMessages,
         metadata: (val) =>
           input.processor.updateToolCall(options.toolCallId, (match) => {
             if (!["running", "pending"].includes(match.state.status)) return match
@@ -762,6 +763,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
       let error: Error | undefined
       const taskAbort = new AbortController()
+      const promptMessages = MessageV2.stripPromptMetadata(msgs)
       const result = yield* taskTool
         .execute(taskArgs, {
           agent: task.agent,
@@ -770,7 +772,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           abort: taskAbort.signal,
           callID: part.callID,
           extra: { bypassAgentCheck: true, promptOps },
-          messages: msgs,
+          messages: promptMessages,
           metadata: (val: { title?: string; metadata?: Record<string, any> }) =>
             Effect.gen(function* () {
               part = yield* sessions.updatePart({
@@ -955,7 +957,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               },
             }
             yield* sessions.updatePart(part)
-            if (Flag.OPENCODE_EXPERIMENTAL_EVENT_SYSTEM) {
+            if (Flag.FLASHCODE_EXPERIMENTAL_EVENT_SYSTEM) {
               yield* sync.run(SessionEvent.Shell.Started.Sync, {
                 sessionID: input.sessionID,
                 timestamp: DateTime.makeUnsafe(started),
@@ -978,7 +980,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 output += "\n\n" + ["<metadata>", "User aborted the command", "</metadata>"].join("\n")
               }
               const completed = Date.now()
-              if (Flag.OPENCODE_EXPERIMENTAL_EVENT_SYSTEM) {
+              if (Flag.FLASHCODE_EXPERIMENTAL_EVENT_SYSTEM) {
                 yield* sync.run(SessionEvent.Shell.Ended.Sync, {
                   sessionID: input.sessionID,
                   timestamp: DateTime.makeUnsafe(completed),
@@ -1567,7 +1569,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         },
       )
       // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
-      if (Flag.OPENCODE_EXPERIMENTAL_EVENT_SYSTEM) {
+      if (Flag.FLASHCODE_EXPERIMENTAL_EVENT_SYSTEM) {
         yield* sync.run(SessionEvent.Prompted.Sync, {
           sessionID: input.sessionID,
           timestamp: DateTime.makeUnsafe(info.time.created),
@@ -1581,7 +1583,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       }
       for (const text of nextPrompt.synthetic) {
         // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
-        if (Flag.OPENCODE_EXPERIMENTAL_EVENT_SYSTEM) {
+        if (Flag.FLASHCODE_EXPERIMENTAL_EVENT_SYSTEM) {
           yield* sync.run(SessionEvent.Synthetic.Sync, {
             sessionID: input.sessionID,
             timestamp: DateTime.makeUnsafe(info.time.created),
@@ -1788,19 +1790,21 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               }
             }
 
-            yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
+            const promptMsgs = MessageV2.stripPromptMetadata(msgs)
+
+            yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: promptMsgs })
 
             const [skills, env, instructions, modelMsgs] = yield* Effect.all([
               sys.skills(agent),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
-              MessageV2.toModelMessagesEffect(msgs, model),
+              MessageV2.toModelMessagesEffect(promptMsgs, model),
             ])
             const system = [...env, ...instructions, ...(skills ? [skills] : [])]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({
-              user: lastUser,
+              user: MessageV2.stripPromptUserSummary(lastUser),
               agent,
               permission: session.permission,
               sessionID,

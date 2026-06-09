@@ -20,10 +20,29 @@ const log = Log.create({ service: "gguf-resolver" })
 
 function getDefaultModelDir(): string {
   if (process.platform === "win32") {
-    return path.join(path.parse(process.cwd()).root, ".opencode", "models")
+    return path.join(path.parse(process.cwd()).root, ".flashcode", "models")
   }
 
-  return path.join(os.homedir(), ".opencode", "models")
+  return path.join(os.homedir(), ".flashcode", "models")
+}
+
+function parseHfSpecifier(model: string) {
+  let quantFilter = ""
+  let specifier = model
+  if (specifier.includes(":")) {
+    const idx = specifier.lastIndexOf(":")
+    quantFilter = specifier.slice(idx + 1)
+    specifier = specifier.slice(0, idx)
+  }
+
+  const parts = specifier.split("/")
+  if (parts.length !== 2) return
+
+  return {
+    owner: parts[0],
+    quantFilter,
+    repo: parts[1],
+  }
 }
 
 function findInModelDir(modelDir: string, owner: string, repo: string, quantFilter: string): string | undefined {
@@ -46,46 +65,49 @@ function findInModelDir(modelDir: string, owner: string, repo: string, quantFilt
   return path.join(repoDir, candidates[0])
 }
 
+export function resolveLocalGgufPath(model: string): string | undefined {
+  if (fs.existsSync(model)) return path.resolve(model)
+
+  const parsed = parseHfSpecifier(model)
+  if (!parsed) return undefined
+
+  const modelDir = process.env.LLM_MODEL_DIR || getDefaultModelDir()
+  const localPath = findInModelDir(modelDir, parsed.owner, parsed.repo, parsed.quantFilter)
+  if (localPath) {
+    log.info("resolved model from local directory", { path: localPath })
+    return localPath
+  }
+
+  return undefined
+}
+
 /**
  * Resolve a model specifier to a local GGUF file path.
  *
  * Resolution order for HuggingFace specifiers:
  * 1. `LLM_MODEL_DIR` env override → look there first
- * 2. Default persistent model directory (`<drive>/.opencode/models` on Windows,
- *    `~/.opencode/models` elsewhere)
+ * 2. Default persistent model directory (`<drive>/.flashcode/models` on Windows,
+ *    `~/.flashcode/models` elsewhere)
  * 3. Auto-download from HuggingFace (dev mode only)
  */
 export async function resolveGgufPath(
   model: string,
   onProgress?: (progress: { totalSize: number; downloadedSize: number }) => void,
 ): Promise<string> {
-  // 1. Direct local path
-  if (fs.existsSync(model)) return path.resolve(model)
+  const localPath = resolveLocalGgufPath(model)
+  if (localPath) return localPath
 
   // 2. Looks like a local path that doesn't exist
   if (model.endsWith(".gguf")) throw new Error(`GGUF file not found: ${model}`)
 
   // 3. HuggingFace specifier: owner/repo or owner/repo:quant
-  let quantFilter = ""
-  let specifier = model
-  if (specifier.includes(":")) {
-    const idx = specifier.lastIndexOf(":")
-    quantFilter = specifier.slice(idx + 1)
-    specifier = specifier.slice(0, idx)
-  }
-
-  const parts = specifier.split("/")
-  if (parts.length !== 2) throw new Error(`Invalid model specifier: ${model}. Expected format: owner/repo[:quant]`)
-  const [owner, repo] = parts
+  const parsed = parseHfSpecifier(model)
+  if (!parsed) throw new Error(`Invalid model specifier: ${model}. Expected format: owner/repo[:quant]`)
+  const owner = parsed.owner
+  const repo = parsed.repo
+  const quantFilter = parsed.quantFilter
 
   const modelDir = process.env.LLM_MODEL_DIR || getDefaultModelDir()
-
-  // Try local resolution first
-  const localPath = findInModelDir(modelDir, owner, repo, quantFilter)
-  if (localPath) {
-    log.info("resolved model from local directory", { path: localPath })
-    return localPath
-  }
 
   // Auto-download from HuggingFace using node-llama-cpp's built-in downloader
   log.info("model not found locally, downloading from HuggingFace", { model, modelDir })

@@ -18,8 +18,8 @@ ORANGE='\033[38;5;214m'
 MUTED='\033[0;2m'
 NC='\033[0m'
 
-OPENCODE_DIR="${OPENCODE_DIR:-$HOME/.opencode}"
-OPENCODE_SRC="${OPENCODE_SRC:-$HOME/.opencode-src}"
+OPENCODE_DIR="${OPENCODE_DIR:-$HOME/.flashcode}"
+OPENCODE_SRC="${OPENCODE_SRC:-$HOME/.flashcode-src}"
 FORK_REPO="${FORK_REPO:-https://github.com/claudianus/opencode.git}"
 FORK_BRANCH="${FORK_BRANCH:-fix-zhipuai-coding-plan-thinking}"
 

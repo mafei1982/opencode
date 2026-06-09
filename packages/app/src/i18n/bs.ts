@@ -98,9 +98,9 @@ export const dict = {
   "dialog.provider.group.popular": "Popularno",
   "dialog.provider.group.other": "Ostalo",
   "dialog.provider.tag.recommended": "Preporučeno",
-  "dialog.provider.opencode.note": "Kurirani modeli uključujući Claude, GPT, Gemini i druge",
-  "dialog.provider.opencode.tagline": "Pouzdani optimizovani modeli",
-  "dialog.provider.opencodeGo.tagline": "Povoljna pretplata za sve",
+  "dialog.provider.flashcode.note": "Kurirani modeli uključujući Claude, GPT, Gemini i druge",
+  "dialog.provider.flashcode.tagline": "Pouzdani optimizovani modeli",
+  "dialog.provider.flashcodeGo.tagline": "Povoljna pretplata za sve",
   "dialog.provider.anthropic.note": "Direktan pristup Claude modelima, uključujući Pro i Max",
   "dialog.provider.copilot.note": "AI modeli za pomoć pri kodiranju putem GitHub Copilot",
   "dialog.provider.openai.note": "GPT modeli za brze, sposobne opšte AI zadatke",
@@ -115,7 +115,7 @@ export const dict = {
   "dialog.model.manage.description": "Prilagodi koji se modeli prikazuju u izborniku modela.",
   "dialog.model.manage.provider.toggle": "Uključi/isključi sve {{provider}} modele",
 
-  "dialog.model.unpaid.freeModels.title": "Besplatni modeli koje obezbjeđuje OpenCode",
+  "dialog.model.unpaid.freeModels.title": "Besplatni modeli koje obezbjeđuje FlashCode",
   "dialog.model.unpaid.addMore.title": "Dodaj još modela od popularnih provajdera",
 
   "dialog.provider.viewAll": "Prikaži više provajdera",
@@ -132,13 +132,13 @@ export const dict = {
   "provider.connect.apiKey.label": "{{provider}} API ključ",
   "provider.connect.apiKey.placeholder": "API ključ",
   "provider.connect.apiKey.required": "API ključ je obavezan",
-  "provider.connect.opencodeZen.line1":
+  "provider.connect.flashcodeZen.line1":
     "OpenCode Zen ti daje pristup kuriranom skupu pouzdanih, optimizovanih modela za coding agente.",
-  "provider.connect.opencodeZen.line2":
+  "provider.connect.flashcodeZen.line2":
     "Sa jednim API ključem dobijaš pristup modelima kao što su Claude, GPT, Gemini, GLM i drugi.",
-  "provider.connect.opencodeZen.visit.prefix": "Posjeti ",
-  "provider.connect.opencodeZen.visit.link": "opencode.ai/zen",
-  "provider.connect.opencodeZen.visit.suffix": " da preuzmeš svoj API ključ.",
+  "provider.connect.flashcodeZen.visit.prefix": "Posjeti ",
+  "provider.connect.flashcodeZen.visit.link": "opencode.ai/zen",
+  "provider.connect.flashcodeZen.visit.suffix": " da preuzmeš svoj API ključ.",
   "provider.connect.oauth.code.visit.prefix": "Posjeti ",
   "provider.connect.oauth.code.visit.link": "ovaj link",
   "provider.connect.oauth.code.visit.suffix":
@@ -295,7 +295,7 @@ export const dict = {
   "dialog.mcp.empty": "Nema konfigurisnih MCP-ova",
 
   "dialog.lsp.empty": "LSP-ovi se automatski otkrivaju prema tipu datoteke",
-  "dialog.plugins.empty": "Plugini su konfigurisani u opencode.json",
+  "dialog.plugins.empty": "Plugini su konfigurisani u flashcode.json",
 
   "mcp.status.connected": "povezano",
   "mcp.status.failed": "neuspjelo",
@@ -308,7 +308,7 @@ export const dict = {
   "dialog.directory.empty": "Nema pronađenih foldera",
 
   "dialog.server.title": "Serveri",
-  "dialog.server.description": "Promijeni na koji se OpenCode server ova aplikacija povezuje.",
+  "dialog.server.description": "Promijeni na koji se FlashCode server ova aplikacija povezuje.",
   "dialog.server.search.placeholder": "Pretraži servere",
   "dialog.server.empty": "Još nema servera",
   "dialog.server.add.title": "Dodaj server",
@@ -441,7 +441,7 @@ export const dict = {
   "toast.session.listFailed.title": "Neuspjelo učitavanje sesija za {{project}}",
 
   "toast.update.title": "Dostupno ažuriranje",
-  "toast.update.description": "Nova verzija OpenCode-a ({{version}}) je dostupna za instalaciju.",
+  "toast.update.description": "Nova verzija FlashCode-a ({{version}}) je dostupna za instalaciju.",
   "toast.update.action.installRestart": "Instaliraj i restartuj",
   "toast.update.action.notYet": "Ne još",
 
@@ -454,7 +454,7 @@ export const dict = {
   "error.page.action.checking": "Provjera...",
   "error.page.action.checkUpdates": "Provjeri ažuriranja",
   "error.page.action.updateTo": "Ažuriraj na {{version}}",
-  "error.page.report.prefix": "Molimo prijavi ovu grešku OpenCode timu",
+  "error.page.report.prefix": "Molimo prijavi ovu grešku FlashCode timu",
   "error.page.report.discord": "na Discordu",
   "error.page.version": "Verzija: {{version}}",
 
@@ -472,8 +472,8 @@ export const dict = {
   "error.chain.responseBody": "Tijelo odgovora:\n{{body}}",
   "error.chain.didYouMean": "Da li si mislio: {{suggestions}}",
   "error.chain.modelNotFound": "Model nije pronađen: {{provider}}/{{model}}",
-  "error.chain.checkConfig": "Provjeri konfiguraciju (opencode.json) provider/model names",
-  "error.chain.mcpFailed": 'MCP server "{{name}}" nije uspio. Napomena: OpenCode još ne podržava MCP autentifikaciju.',
+  "error.chain.checkConfig": "Provjeri konfiguraciju (flashcode.json) provider/model names",
+  "error.chain.mcpFailed": 'MCP server "{{name}}" nije uspio. Napomena: FlashCode još ne podržava MCP autentifikaciju.',
   "error.chain.providerAuthFailed": "Autentifikacija provajdera nije uspjela ({{provider}}): {{message}}",
   "error.chain.providerInitFailed":
     'Neuspjelo inicijalizovanje provajdera "{{provider}}". Provjeri kredencijale i konfiguraciju.',
@@ -607,13 +607,13 @@ export const dict = {
   "sidebar.workspaces.enable": "Omogući radne prostore",
   "sidebar.workspaces.disable": "Onemogući radne prostore",
   "sidebar.gettingStarted.title": "Početak",
-  "sidebar.gettingStarted.line1": "OpenCode uključuje besplatne modele, tako da možeš odmah početi.",
+  "sidebar.gettingStarted.line1": "FlashCode uključuje besplatne modele, tako da možeš odmah početi.",
   "sidebar.gettingStarted.line2": "Poveži bilo kojeg provajdera da koristiš modele, npr. Claude, GPT, Gemini itd.",
   "sidebar.project.recentSessions": "Nedavne sesije",
   "sidebar.project.viewAllSessions": "Prikaži sve sesije",
   "sidebar.project.clearNotifications": "Očisti obavijesti",
 
-  "app.name.desktop": "OpenCode Desktop",
+  "app.name.desktop": "FlashCode Desktop",
 
   "settings.section.desktop": "Desktop",
   "settings.section.server": "Server",
@@ -621,7 +621,7 @@ export const dict = {
   "settings.tab.shortcuts": "Prečice",
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL integracija",
-  "settings.desktop.wsl.description": "Pokreni OpenCode server unutar WSL-a na Windowsu.",
+  "settings.desktop.wsl.description": "Pokreni FlashCode server unutar WSL-a na Windowsu.",
 
   "settings.general.section.appearance": "Izgled",
   "settings.general.section.notifications": "Sistemske obavijesti",

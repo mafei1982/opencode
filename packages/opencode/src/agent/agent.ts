@@ -25,6 +25,42 @@ import * as Option from "effect/Option"
 import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { type DeepMutable } from "@opencode-ai/core/schema"
 
+const DEFAULT_AGENT_NAMES = new Set(["build", "plan"])
+const NATIVE_AGENT_NAMES = new Set([
+  ...DEFAULT_AGENT_NAMES,
+  "general",
+  "explore",
+  "scout",
+  "compaction",
+  "title",
+  "summary",
+])
+const TRUTHY_ENV_VALUES = new Set(["1", "true", "yes", "on"])
+const FALSY_ENV_VALUES = new Set(["0", "false", "no", "off"])
+
+function readShowDefaultAgentsOverride() {
+  const value = process.env.FLASHCODE_SHOW_DEFAULT_AGENTS?.trim().toLowerCase()
+  if (!value) return
+  if (TRUTHY_ENV_VALUES.has(value)) return true
+  if (FALSY_ENV_VALUES.has(value)) return false
+}
+
+function hasCustomPrimaryAgent(cfg: Config.Info) {
+  return Object.entries(cfg.agent ?? {}).some(([name, value]) => {
+    if (NATIVE_AGENT_NAMES.has(name)) return false
+    if (value.disable || value.hidden === true) return false
+    return (value.mode ?? "all") !== "subagent"
+  })
+}
+
+function defaultPrimaryAgentVisibility(cfg: Config.Info) {
+  const override = readShowDefaultAgentsOverride()
+  if (override !== undefined) return { hidden: !override, locked: true }
+  if (Flag.FLASHCODE_CLIENT !== "desktop") return { hidden: false, locked: false }
+  if (!Flag.FLASHCODE_EMBEDDED_CONFIG_DIR) return { hidden: false, locked: false }
+  return { hidden: hasCustomPrimaryAgent(cfg), locked: false }
+}
+
 export const Info = Schema.Struct({
   name: Schema.String,
   description: Schema.optional(Schema.String),
@@ -84,6 +120,8 @@ export const layer = Layer.effect(
     const state = yield* InstanceState.make<State>(
       Effect.fn("Agent.state")(function* (ctx) {
         const cfg = yield* config.get()
+        const defaultPrimaryVisibility = defaultPrimaryAgentVisibility(cfg)
+        const lockedDefaultHidden = defaultPrimaryVisibility.hidden ? true : undefined
         const skillDirs = yield* skill.dirs()
         const whitelistedDirs = [
           Truncate.GLOB,
@@ -123,6 +161,7 @@ export const layer = Layer.effect(
             name: "build",
             description: "The default agent. Executes tools based on configured permissions.",
             options: {},
+            hidden: lockedDefaultHidden,
             permission: Permission.merge(
               defaults,
               Permission.fromConfig({
@@ -138,6 +177,7 @@ export const layer = Layer.effect(
             name: "plan",
             description: "Plan mode. Disallows all edit tools.",
             options: {},
+            hidden: lockedDefaultHidden,
             permission: Permission.merge(
               defaults,
               Permission.fromConfig({
@@ -148,7 +188,7 @@ export const layer = Layer.effect(
                 },
                 edit: {
                   "*": "deny",
-                  [path.join(".opencode", "plans", "*.md")]: "allow",
+                  [path.join(".flashcode", "plans", "*.md")]: "allow",
                   [path.relative(ctx.worktree, path.join(Global.Path.data, path.join("plans", "*.md")))]: "allow",
                 },
               }),
@@ -194,7 +234,7 @@ export const layer = Layer.effect(
             mode: "subagent",
             native: true,
           },
-          ...(Flag.OPENCODE_EXPERIMENTAL_SCOUT
+          ...(Flag.FLASHCODE_EXPERIMENTAL_SCOUT
             ? {
                 scout: {
                   name: "scout",
@@ -294,7 +334,10 @@ export const layer = Layer.effect(
           item.topP = value.top_p ?? item.topP
           item.mode = value.mode ?? item.mode
           item.color = value.color ?? item.color
-          item.hidden = value.hidden ?? item.hidden
+          item.hidden =
+            defaultPrimaryVisibility.locked && DEFAULT_AGENT_NAMES.has(key)
+              ? lockedDefaultHidden
+              : value.hidden ?? item.hidden
           item.name = value.name ?? item.name
           item.steps = value.steps ?? item.steps
           item.options = mergeDeep(item.options, value.options ?? {})

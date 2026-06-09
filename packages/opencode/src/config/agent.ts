@@ -108,10 +108,16 @@ export const Info = AgentSchema.pipe(
 export type Info = Schema.Schema.Type<typeof Info>
 
 export async function load(dir: string) {
-  // Auto-set NI_CIC_REFERENCES_DIR if a references/ subfolder exists and env is not already set
-  if (!process.env.NI_CIC_REFERENCES_DIR) {
+  const existingReferencesDir = process.env.FLASHCODE_REFERENCES_DIR ?? process.env.NI_CIC_REFERENCES_DIR
+  if (existingReferencesDir) {
+    process.env.FLASHCODE_REFERENCES_DIR = existingReferencesDir
+    process.env.NI_CIC_REFERENCES_DIR = existingReferencesDir
+  }
+
+  if (!existingReferencesDir) {
     const refsDir = path.join(dir, "references")
     if (existsSync(refsDir)) {
+      process.env.FLASHCODE_REFERENCES_DIR = refsDir
       process.env.NI_CIC_REFERENCES_DIR = refsDir
     }
   }
@@ -133,7 +139,7 @@ export async function load(dir: string) {
     })
     if (!md) continue
 
-    const patterns = ["/.opencode/agent/", "/.opencode/agents/", "/agent/", "/agents/"]
+    const patterns = ["/.flashcode/agent/", "/.flashcode/agents/", "/agent/", "/agents/"]
     const name = configEntryNameFromPath(item, patterns)
 
     const config = {

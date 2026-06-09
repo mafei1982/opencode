@@ -136,6 +136,7 @@ export interface MessageProps {
   actions?: UserActions
   showAssistantCopyPartID?: string | null
   showReasoningSummaries?: boolean
+  showModelInfo?: boolean
 }
 
 export type SessionAction = (input: { sessionID: string; messageID: string }) => Promise<void> | void
@@ -152,6 +153,7 @@ export interface MessagePartProps {
   defaultOpen?: boolean
   showAssistantCopyPartID?: string | null
   turnDurationMs?: number
+  showModelInfo?: boolean
 }
 
 export type PartComponent = Component<MessagePartProps>
@@ -811,7 +813,12 @@ export function Message(props: MessageProps) {
     <Switch>
       <Match when={props.message.role === "user" && props.message}>
         {(userMessage) => (
-          <UserMessageDisplay message={userMessage() as UserMessage} parts={props.parts} actions={props.actions} />
+          <UserMessageDisplay
+            message={userMessage() as UserMessage}
+            parts={props.parts}
+            actions={props.actions}
+            showModelInfo={props.showModelInfo}
+          />
         )}
       </Match>
       <Match when={props.message.role === "assistant" && props.message}>
@@ -821,6 +828,7 @@ export function Message(props: MessageProps) {
             parts={props.parts}
             showAssistantCopyPartID={props.showAssistantCopyPartID}
             showReasoningSummaries={props.showReasoningSummaries}
+            showModelInfo={props.showModelInfo}
           />
         )}
       </Match>
@@ -833,6 +841,7 @@ export function AssistantMessageDisplay(props: {
   parts: PartType[]
   showAssistantCopyPartID?: string | null
   showReasoningSummaries?: boolean
+  showModelInfo?: boolean
 }) {
   const emptyTools: ToolPart[] = []
   const part = createMemo(() => index(props.parts))
@@ -892,6 +901,7 @@ export function AssistantMessageDisplay(props: {
                       part={item()!}
                       message={props.message}
                       showAssistantCopyPartID={props.showAssistantCopyPartID}
+                      showModelInfo={props.showModelInfo}
                     />
                   </Show>
                 )
@@ -1002,7 +1012,12 @@ function ContextToolGroup(props: { parts: ToolPart[]; busy?: boolean }) {
   )
 }
 
-export function UserMessageDisplay(props: { message: UserMessage; parts: PartType[]; actions?: UserActions }) {
+export function UserMessageDisplay(props: {
+  message: UserMessage
+  parts: PartType[]
+  actions?: UserActions
+  showModelInfo?: boolean
+}) {
   const data = useData()
   const dialog = useDialog()
   const i18n = useI18n()
@@ -1044,7 +1059,7 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
 
   const metaHead = createMemo(() => {
     const agent = props.message.agent
-    const items = [agent ? agent[0]?.toUpperCase() + agent.slice(1) : "", model()]
+    const items = [agent ? agent[0]?.toUpperCase() + agent.slice(1) : "", props.showModelInfo === false ? "" : model()]
     return items.filter((x) => !!x).join("\u00A0\u00B7\u00A0")
   })
 
@@ -1230,6 +1245,7 @@ export function Part(props: MessagePartProps) {
         defaultOpen={props.defaultOpen}
         showAssistantCopyPartID={props.showAssistantCopyPartID}
         turnDurationMs={props.turnDurationMs}
+        showModelInfo={props.showModelInfo}
       />
     </Show>
   )
@@ -1452,7 +1468,7 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     const agent = (props.message as AssistantMessage).agent
     const items = [
       agent ? agent[0]?.toUpperCase() + agent.slice(1) : "",
-      model(),
+      props.showModelInfo === false ? "" : model(),
       duration(),
       interrupted() ? i18n.t("ui.message.interrupted") : "",
     ]

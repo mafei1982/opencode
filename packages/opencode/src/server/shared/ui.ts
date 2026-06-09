@@ -5,12 +5,12 @@ import { HttpBody, HttpClient, HttpClientRequest, HttpServerRequest, HttpServerR
 import { createHash } from "node:crypto"
 import { ProxyUtil } from "../proxy-util"
 
-const embeddedUIPromise = Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI
+const embeddedUIPromise = Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI
   ? Promise.resolve(null)
   : // @ts-expect-error - generated file at build time
     import("opencode-web-ui.gen.ts").then((module) => module.default as Record<string, string>).catch(() => null)
 
-export const UI_UPSTREAM = new URL("https://app.opencode.ai")
+export const UI_UPSTREAM = new URL("https://app.flashcode.ai")
 
 export const csp = (hash = "") =>
   `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'${hash ? ` 'sha256-${hash}'` : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src * data:`
@@ -46,7 +46,7 @@ export function upstreamURL(path: string) {
 }
 
 export function embeddedUI() {
-  if (Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI) return Promise.resolve(null)
+  if (Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI) return Promise.resolve(null)
   return embeddedUIPromise
 }
 

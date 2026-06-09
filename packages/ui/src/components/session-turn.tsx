@@ -164,6 +164,7 @@ export function SessionTurn(
     status?: SessionStatus
     onUserInteracted?: () => void
     readFile?: (path: string) => Promise<FileContent | undefined>
+    showModelInfo?: boolean
     classes?: {
       root?: string
       content?: string
@@ -401,7 +402,7 @@ export function SessionTurn(
               class={props.classes?.container}
             >
               <div data-slot="session-turn-message-content" aria-live="off">
-                <Message message={message()!} parts={parts()} actions={props.actions} />
+                <Message message={message()!} parts={parts()} actions={props.actions} showModelInfo={props.showModelInfo} />
               </div>
               <Show when={divider()}>
                 <div data-slot="session-turn-compaction">

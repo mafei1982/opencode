@@ -7,6 +7,7 @@ import type { Component } from "solid-js"
 import { useLocal } from "@/context/local"
 import { popularProviders } from "@/hooks/use-providers"
 import { useLanguage } from "@/context/language"
+import { usePlatform } from "@/context/platform"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { DialogSelectProvider } from "./dialog-select-provider"
 
@@ -14,8 +15,11 @@ export const DialogManageModels: Component = () => {
   const local = useLocal()
   const language = useLanguage()
   const dialog = useDialog()
+  const platform = usePlatform()
+  const manageProviders = () => platform.providerManagement !== false
 
   const handleConnectProvider = () => {
+    if (!manageProviders()) return
     dialog.show(() => <DialogSelectProvider />)
   }
   const providerRank = (id: string) => popularProviders.indexOf(id)
@@ -33,9 +37,11 @@ export const DialogManageModels: Component = () => {
       title={language.t("dialog.model.manage")}
       description={language.t("dialog.model.manage.description")}
       action={
-        <Button class="h-7 -my-1 text-14-medium" icon="plus-small" tabIndex={-1} onClick={handleConnectProvider}>
-          {language.t("command.provider.connect")}
-        </Button>
+        manageProviders() ? (
+          <Button class="h-7 -my-1 text-14-medium" icon="plus-small" tabIndex={-1} onClick={handleConnectProvider}>
+            {language.t("command.provider.connect")}
+          </Button>
+        ) : undefined
       }
     >
       <List

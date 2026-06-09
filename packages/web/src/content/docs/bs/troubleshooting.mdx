@@ -11,7 +11,7 @@ Da biste otklonili probleme s OpenCode, počnite provjeravanjem dnevnika i lokal
 
 Log fajlovi se pišu na:
 
-- **macOS/Linux**: `~/.local/share/opencode/log/`
+- **macOS/Linux**: `~/.local/share/flashcode/log/`
 - **Windows**: Pritisnite `WIN+R` i zalijepite `%USERPROFILE%\.local\share\opencode\log`
 
 Datoteke evidencije se imenuju vremenskim oznakama (npr. `2025-01-09T123456.log`) i čuvaju se najnovijih 10 datoteka dnevnika.
@@ -24,7 +24,7 @@ Možete postaviti nivo dnevnika pomoću opcije komandne linije `--log-level` da 
 
 OpenCode pohranjuje podatke o sesiji i druge podatke aplikacije na disku na:
 
-- **macOS/Linux**: `~/.local/share/opencode/`
+- **macOS/Linux**: `~/.local/share/flashcode/`
 - **Windows**: Pritisnite `WIN+R` i zalijepite `%USERPROFILE%\.local\share\opencode`
 
 Ovaj direktorij sadrži:
@@ -57,9 +57,9 @@ Ako se desktop aplikacija ruši pri pokretanju, visi ili se čudno ponaša, poč
 
 Otvorite svoju globalnu konfiguracijsku datoteku i potražite ključ `plugin`.
 
-- **macOS/Linux**: `~/.config/opencode/opencode.jsonc` (ili `~/.config/opencode/opencode.json`)
-- **macOS/Linux** (starije instalacije): `~/.local/share/opencode/opencode.jsonc`
-- **Windows**: Pritisnite `WIN+R` i zalijepite `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **macOS/Linux**: `~/.config/flashcode/flashcode.jsonc` (ili `~/.config/flashcode/flashcode.json`)
+- **macOS/Linux** (starije instalacije): `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows**: Pritisnite `WIN+R` i zalijepite `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 Ako imate konfigurirane dodatke, privremeno ih onemogućite uklanjanjem ključa ili postavljanjem na prazan niz:
 
@@ -75,10 +75,10 @@ Ako imate konfigurirane dodatke, privremeno ih onemogućite uklanjanjem ključa 
 OpenCode također može učitati lokalne dodatke s diska. Privremeno ih maknite s puta (ili preimenujte folder) i ponovo pokrenite desktop aplikaciju:
 
 - **Globalni dodaci**
-  - **macOS/Linux**: `~/.config/opencode/plugins/`
+  - **macOS/Linux**: `~/.config/flashcode/plugins/`
   - **Windows**: Pritisnite `WIN+R` i zalijepite `%USERPROFILE%\.config\opencode\plugins`
 - **Projektni dodaci** (samo ako koristite konfiguraciju po projektu)
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 Ako aplikacija ponovo počne raditi, ponovo omogućite dodatke jedan po jedan kako biste otkrili koji od njih uzrokuje problem.
 
@@ -91,8 +91,8 @@ Ako onemogućavanje dodataka ne pomogne (ili se instalacija dodatka zaglavila), 
 1. Potpuno zatvorite OpenCode Desktop.
 2. Izbrišite keš direktorij:
 
-- **macOS**: Finder -> `Cmd+Shift+G` -> zalijepi `~/.cache/opencode`
-- **Linux**: obrišite `~/.cache/opencode` (ili pokrenite `rm -rf ~/.cache/opencode`)
+- **macOS**: Finder -> `Cmd+Shift+G` -> zalijepi `~/.cache/flashcode`
+- **Linux**: obrišite `~/.cache/flashcode` (ili pokrenite `rm -rf ~/.cache/flashcode`)
 - **Windows**: Pritisnite `WIN+R` i zalijepite `%USERPROFILE%\.cache\opencode`
 
 3. Ponovo pokrenite OpenCode Desktop.
@@ -111,7 +111,7 @@ Na početnom ekranu kliknite na ime servera (sa tačkom statusa) da otvorite bir
 
 #### Uklonite `server.port` / `server.hostname` iz vaše konfiguracije
 
-Ako vaš `opencode.json(c)` sadrži odjeljak `server`, privremeno ga uklonite i ponovo pokrenite desktop aplikaciju.
+Ako vaš `flashcode.json(c)` sadrži odjeljak `server`, privremeno ga uklonite i ponovo pokrenite desktop aplikaciju.
 
 #### Provjerite varijable okruženja
 
@@ -241,7 +241,7 @@ Da biste ovo riješili:
 2. Ako se problem nastavi, pokušajte obrisati pohranjenu konfiguraciju:
 
 ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
 ```
 
 Na Windows-u pritisnite `WIN+R` i izbrišite: `%USERPROFILE%\.local\share\opencode`
@@ -259,7 +259,7 @@ Da biste riješili probleme s paketom dobavljača:
 1. Obrišite keš paketa provajdera:
 
 ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
 ```
 
 Na Windows-u pritisnite `WIN+R` i izbrišite: `%USERPROFILE%\.cache\opencode`

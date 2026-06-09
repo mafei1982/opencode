@@ -137,6 +137,7 @@ export type LocalLanguageModelConfig = {
     topP?: number
     topK?: number
     minP?: number
+    repeatPenalty?: number
   }
   inferenceTimeout: number
   inferenceRetries: number

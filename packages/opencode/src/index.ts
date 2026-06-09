@@ -91,7 +91,7 @@ const cli = yargs(args)
   })
   .middleware(async (opts) => {
     if (opts.pure) {
-      process.env.OPENCODE_PURE = "1"
+      process.env.FLASHCODE_PURE = "1"
     }
 
     await Log.init({

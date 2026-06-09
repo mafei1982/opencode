@@ -6,8 +6,8 @@ import { pathToFileURL } from "url"
 import { disposeAllInstances, provideTmpdirInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 
-const disableDefault = process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS
-process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1"
+const disableDefault = process.env.FLASHCODE_DISABLE_DEFAULT_PLUGINS
+process.env.FLASHCODE_DISABLE_DEFAULT_PLUGINS = "1"
 
 const { Flag } = await import("@opencode-ai/core/flag/flag")
 const { Plugin } = await import("../../src/plugin/index")
@@ -21,9 +21,9 @@ const workspaceLayer = Workspace.defaultLayer.pipe(
 )
 const it = testEffect(Layer.mergeAll(Plugin.defaultLayer, workspaceLayer, CrossSpawnSpawner.defaultLayer))
 
-const experimental = Flag.OPENCODE_EXPERIMENTAL_WORKSPACES
+const experimental = Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES
 
-Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = true
+Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = true
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -31,12 +31,12 @@ afterEach(async () => {
 
 afterAll(() => {
   if (disableDefault === undefined) {
-    delete process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS
+    delete process.env.FLASHCODE_DISABLE_DEFAULT_PLUGINS
   } else {
-    process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS = disableDefault
+    process.env.FLASHCODE_DISABLE_DEFAULT_PLUGINS = disableDefault
   }
 
-  Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = experimental
+  Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = experimental
 })
 
 describe("plugin.workspace", () => {
@@ -75,7 +75,7 @@ describe("plugin.workspace", () => {
 
         yield* Effect.promise(() =>
           Bun.write(
-            path.join(dir, "opencode.json"),
+            path.join(dir, "flashcode.json"),
             JSON.stringify(
               {
                 $schema: "https://opencode.ai/config.json",

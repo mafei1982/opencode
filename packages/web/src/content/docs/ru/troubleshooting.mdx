@@ -11,7 +11,7 @@ description: Распространенные проблемы и способы
 
 Лог-файлы записываются в:
 
-- **macOS/Linux**: `~/.local/share/opencode/log/`
+- **macOS/Linux**: `~/.local/share/flashcode/log/`
 - **Windows**: нажмите `WIN+R` и вставьте `%USERPROFILE%\.local\share\opencode\log`.
 
 Файлам журналов присваиваются имена с метками времени (например, `2025-01-09T123456.log`), и сохраняются 10 последних файлов журналов.
@@ -24,7 +24,7 @@ description: Распространенные проблемы и способы
 
 opencode хранит данные сеанса и другие данные приложения на диске по адресу:
 
-- **macOS/Linux**: `~/.local/share/opencode/`
+- **macOS/Linux**: `~/.local/share/flashcode/`
 - **Windows**: нажмите `WIN+R` и вставьте `%USERPROFILE%\.local\share\opencode`.
 
 Этот каталог содержит:
@@ -57,9 +57,9 @@ opencode Desktop запускает локальный сервер opencode (с
 
 Откройте файл глобальной конфигурации и найдите ключ `plugin`.
 
-- **macOS/Linux**: `~/.config/opencode/opencode.jsonc` (или `~/.config/opencode/opencode.json`)
-- **macOS/Linux** (более ранние версии): `~/.local/share/opencode/opencode.jsonc`
-- **Windows**: нажмите `WIN+R` и вставьте `%USERPROFILE%\.config\opencode\opencode.jsonc`.
+- **macOS/Linux**: `~/.config/flashcode/flashcode.jsonc` (или `~/.config/flashcode/flashcode.json`)
+- **macOS/Linux** (более ранние версии): `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows**: нажмите `WIN+R` и вставьте `%USERPROFILE%\.config\opencode\flashcode.jsonc`.
 
 Если у вас настроены плагины, временно отключите их, удалив ключ или установив для него пустой массив:
 
@@ -75,10 +75,10 @@ opencode Desktop запускает локальный сервер opencode (с
 opencode также может загружать локальные плагины с диска. Временно переместите их в сторону (или переименуйте папку) и перезапустите настольное приложение:
 
 - **Глобальные плагины**
-  - **macOS/Linux**: `~/.config/opencode/plugins/`
+  - **macOS/Linux**: `~/.config/flashcode/plugins/`
   - **Windows**: нажмите `WIN+R` и вставьте `%USERPROFILE%\.config\opencode\plugins`.
 - **Плагины проекта** (только если вы используете конфигурацию для каждого проекта)
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 Если приложение снова начнет работать, повторно включите плагины по одному, чтобы определить, какой из них вызывает проблему.
 
@@ -91,8 +91,8 @@ opencode также может загружать локальные плаги�
 1. Полностью закройте opencode Desktop.
 2. Удалите каталог кэша:
 
-- **macOS**: Finder -> `Cmd+Shift+G` -> вставить `~/.cache/opencode`.
-- **Linux**: удалите `~/.cache/opencode` (или запустите `rm -rf ~/.cache/opencode`).
+- **macOS**: Finder -> `Cmd+Shift+G` -> вставить `~/.cache/flashcode`.
+- **Linux**: удалите `~/.cache/flashcode` (или запустите `rm -rf ~/.cache/flashcode`).
 - **Windows**: нажмите `WIN+R` и вставьте `%USERPROFILE%\.cache\opencode`.
 
 3. Перезапустите рабочий стол opencode.
@@ -111,7 +111,7 @@ opencode Desktop может либо запустить собственный �
 
 #### Удалите `server.port`/`server.hostname` из вашей конфигурации.
 
-Если ваш `opencode.json(c)` содержит раздел `server`, временно удалите его и перезапустите настольное приложение.
+Если ваш `flashcode.json(c)` содержит раздел `server`, временно удалите его и перезапустите настольное приложение.
 
 #### Проверьте переменные среды
 
@@ -241,7 +241,7 @@ opencode Desktop отображает системные уведомления 
 2. Если проблема не устранена, попробуйте очистить сохраненную конфигурацию:
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
    В Windows нажмите `WIN+R` и удалите: `%USERPROFILE%\.local\share\opencode`.
@@ -259,7 +259,7 @@ opencode Desktop отображает системные уведомления 
 1. Очистите кеш пакетов провайдера:
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
    В Windows нажмите `WIN+R` и удалите: `%USERPROFILE%\.cache\opencode`.

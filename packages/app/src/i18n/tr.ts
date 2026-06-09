@@ -102,9 +102,9 @@ export const dict = {
   "dialog.provider.group.popular": "Popüler",
   "dialog.provider.group.other": "Diğer",
   "dialog.provider.tag.recommended": "Önerilen",
-  "dialog.provider.opencode.note": "Claude, GPT, Gemini ve daha fazlasını içeren seçilmiş modeller",
-  "dialog.provider.opencode.tagline": "Güvenilir optimize edilmiş modeller",
-  "dialog.provider.opencodeGo.tagline": "Herkes için düşük maliyetli abonelik",
+  "dialog.provider.flashcode.note": "Claude, GPT, Gemini ve daha fazlasını içeren seçilmiş modeller",
+  "dialog.provider.flashcode.tagline": "Güvenilir optimize edilmiş modeller",
+  "dialog.provider.flashcodeGo.tagline": "Herkes için düşük maliyetli abonelik",
   "dialog.provider.anthropic.note": "Pro ve Max dahil Claude modellerine doğrudan erişim",
   "dialog.provider.copilot.note": "GitHub Copilot üzerinden kodlama yardımı için yapay zekâ modelleri",
   "dialog.provider.openai.note": "Hızlı ve yetenekli genel yapay zekâ görevleri için GPT modelleri",
@@ -119,7 +119,7 @@ export const dict = {
   "dialog.model.manage.description": "Model seçicide hangi modellerin görüneceğini özelleştirin.",
   "dialog.model.manage.provider.toggle": "Tüm {{provider}} modellerini aç/kapat",
 
-  "dialog.model.unpaid.freeModels.title": "OpenCode tarafından sunulan ücretsiz modeller",
+  "dialog.model.unpaid.freeModels.title": "FlashCode tarafından sunulan ücretsiz modeller",
   "dialog.model.unpaid.addMore.title": "Popüler sağlayıcılardan daha fazla model ekleyin",
 
   "dialog.provider.viewAll": "Daha fazla sağlayıcı göster",
@@ -136,13 +136,13 @@ export const dict = {
   "provider.connect.apiKey.label": "{{provider}} API anahtarı",
   "provider.connect.apiKey.placeholder": "API anahtarı",
   "provider.connect.apiKey.required": "API anahtarı gerekli",
-  "provider.connect.opencodeZen.line1":
+  "provider.connect.flashcodeZen.line1":
     "OpenCode Zen, kodlama ajanları için seçilmiş güvenilir optimize edilmiş modellere erişim sağlar.",
-  "provider.connect.opencodeZen.line2":
+  "provider.connect.flashcodeZen.line2":
     "Tek bir API anahtarıyla Claude, GPT, Gemini, GLM ve daha fazlası gibi modellere erişebilirsiniz.",
-  "provider.connect.opencodeZen.visit.prefix": "",
-  "provider.connect.opencodeZen.visit.link": "opencode.ai/zen",
-  "provider.connect.opencodeZen.visit.suffix": " adresini ziyaret ederek API anahtarınızı alın.",
+  "provider.connect.flashcodeZen.visit.prefix": "",
+  "provider.connect.flashcodeZen.visit.link": "opencode.ai/zen",
+  "provider.connect.flashcodeZen.visit.suffix": " adresini ziyaret ederek API anahtarınızı alın.",
   "provider.connect.oauth.code.visit.prefix":
     "Hesabınızı bağlamak ve OpenCode'da {{provider}} modellerini kullanmak için ",
   "provider.connect.oauth.code.visit.link": "bu bağlantıya",
@@ -299,7 +299,7 @@ export const dict = {
   "dialog.mcp.empty": "Yapılandırılmış MCP yok",
 
   "dialog.lsp.empty": "LSP'ler dosya türlerinden otomatik algılanır",
-  "dialog.plugins.empty": "Eklentiler opencode.json içinde yapılandırılır",
+  "dialog.plugins.empty": "Eklentiler flashcode.json içinde yapılandırılır",
 
   "mcp.status.connected": "bağlı",
   "mcp.status.failed": "başarısız",
@@ -312,7 +312,7 @@ export const dict = {
   "dialog.directory.empty": "Klasör bulunamadı",
 
   "dialog.server.title": "Sunucular",
-  "dialog.server.description": "Bu uygulamanın hangi OpenCode sunucusuna bağlanacağını değiştirin.",
+  "dialog.server.description": "Bu uygulamanın hangi FlashCode sunucusuna bağlanacağını değiştirin.",
   "dialog.server.search.placeholder": "Sunucu ara",
   "dialog.server.empty": "Henüz sunucu yok",
   "dialog.server.add.title": "Sunucu ekle",
@@ -444,7 +444,7 @@ export const dict = {
   "toast.session.listFailed.title": "{{project}} için oturumlar yüklenemedi",
 
   "toast.update.title": "Güncelleme mevcut",
-  "toast.update.description": "OpenCode'un yeni bir sürümü ({{version}}) yüklemeye hazır.",
+  "toast.update.description": "FlashCode'un yeni bir sürümü ({{version}}) yüklemeye hazır.",
   "toast.update.action.installRestart": "Yükle ve yeniden başlat",
   "toast.update.action.notYet": "Şimdi değil",
 
@@ -457,7 +457,7 @@ export const dict = {
   "error.page.action.checking": "Kontrol ediliyor...",
   "error.page.action.checkUpdates": "Güncellemeleri kontrol et",
   "error.page.action.updateTo": "{{version}} sürümüne güncelle",
-  "error.page.report.prefix": "Lütfen bu hatayı OpenCode ekibine bildirin",
+  "error.page.report.prefix": "Lütfen bu hatayı FlashCode ekibine bildirin",
   "error.page.report.discord": "Discord üzerinden",
   "error.page.version": "Sürüm: {{version}}",
 
@@ -475,9 +475,9 @@ export const dict = {
   "error.chain.responseBody": "Yanıt gövdesi:\n{{body}}",
   "error.chain.didYouMean": "Bunu mu demek istediniz: {{suggestions}}",
   "error.chain.modelNotFound": "Model bulunamadı: {{provider}}/{{model}}",
-  "error.chain.checkConfig": "Yapılandırma dosyanızı (opencode.json) sağlayıcı/model adlarını kontrol edin",
+  "error.chain.checkConfig": "Yapılandırma dosyanızı (flashcode.json) sağlayıcı/model adlarını kontrol edin",
   "error.chain.mcpFailed":
-    'MCP sunucusu "{{name}}" başarısız oldu. Not: OpenCode henüz MCP kimlik doğrulamasını desteklemiyor.',
+    'MCP sunucusu "{{name}}" başarısız oldu. Not: FlashCode henüz MCP kimlik doğrulamasını desteklemiyor.',
   "error.chain.providerAuthFailed": "Sağlayıcı kimlik doğrulaması başarısız ({{provider}}): {{message}}",
   "error.chain.providerInitFailed":
     '"{{provider}}" sağlayıcısı başlatılamadı. Kimlik bilgilerini ve yapılandırmayı kontrol edin.',
@@ -613,13 +613,13 @@ export const dict = {
   "sidebar.workspaces.enable": "Çalışma alanlarını etkinleştir",
   "sidebar.workspaces.disable": "Çalışma alanlarını devre dışı bırak",
   "sidebar.gettingStarted.title": "Başlarken",
-  "sidebar.gettingStarted.line1": "OpenCode ücretsiz modeller içerir, böylece hemen başlayabilirsiniz.",
+  "sidebar.gettingStarted.line1": "FlashCode ücretsiz modeller içerir, böylece hemen başlayabilirsiniz.",
   "sidebar.gettingStarted.line2": "Claude, GPT, Gemini vb. modelleri kullanmak için herhangi bir sağlayıcı bağlayın.",
   "sidebar.project.recentSessions": "Son oturumlar",
   "sidebar.project.viewAllSessions": "Tüm oturumları görüntüle",
   "sidebar.project.clearNotifications": "Bildirimleri temizle",
 
-  "app.name.desktop": "OpenCode Masaüstü",
+  "app.name.desktop": "FlashCode Masaüstü",
 
   "settings.section.desktop": "Masaüstü",
   "settings.section.server": "Sunucu",
@@ -627,7 +627,7 @@ export const dict = {
   "settings.tab.shortcuts": "Kısayollar",
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL entegrasyonu",
-  "settings.desktop.wsl.description": "OpenCode sunucusunu Windows'ta WSL içinde çalıştırın.",
+  "settings.desktop.wsl.description": "FlashCode sunucusunu Windows'ta WSL içinde çalıştırın.",
 
   "settings.general.section.appearance": "Görünüm",
   "settings.general.section.notifications": "Sistem bildirimleri",

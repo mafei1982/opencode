@@ -7,10 +7,10 @@ import { resolveChannel } from "./utils"
 const channel = resolveChannel()
 await $`bun ./scripts/copy-icons.ts ${channel}`
 
-// Copy LLM .env file into resources/ if LLM_ENV_FILE is specified.
-// This bundles the .env into the desktop app so it auto-starts with
-// local LLM configuration.
-const llmEnvFile = process.env.LLM_ENV_FILE || (existsSync("llm.env") ? "llm.env" : "")
+// Copy LLM env file into resources/ so the desktop app auto-starts with
+// local LLM configuration. Prefer an explicit override, then local llm.env,
+// then a local .env file.
+const llmEnvFile = process.env.LLM_ENV_FILE || (existsSync("llm.env") ? "llm.env" : existsSync(".env") ? ".env" : "")
 const llmEnvDest = "resources/llm.env"
 if (llmEnvFile) {
   if (!existsSync(llmEnvFile)) {

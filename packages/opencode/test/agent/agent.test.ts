@@ -1,5 +1,6 @@
 import { afterEach, test, expect } from "bun:test"
 import { Effect } from "effect"
+import * as fs from "fs/promises"
 import path from "path"
 import { disposeAllInstances, provideInstance, tmpdir } from "../fixture/fixture"
 import { WithInstance } from "../../src/project/with-instance"
@@ -19,13 +20,38 @@ function load<A>(dir: string, fn: (svc: Agent.Interface) => Effect.Effect<A>) {
 }
 
 async function withExperimentalScout(enabled: boolean, fn: () => Promise<void>) {
-  const original = Flag.OPENCODE_EXPERIMENTAL_SCOUT
-  Flag.OPENCODE_EXPERIMENTAL_SCOUT = enabled
+  const original = Flag.FLASHCODE_EXPERIMENTAL_SCOUT
+  Flag.FLASHCODE_EXPERIMENTAL_SCOUT = enabled
   try {
     await fn()
   } finally {
-    Flag.OPENCODE_EXPERIMENTAL_SCOUT = original
+    Flag.FLASHCODE_EXPERIMENTAL_SCOUT = original
   }
+}
+
+async function withEnv(overrides: Record<string, string | undefined>, fn: () => Promise<void>) {
+  const previous = new Map<string, string | undefined>()
+  for (const [key, value] of Object.entries(overrides)) {
+    previous.set(key, process.env[key])
+    if (value === undefined) delete process.env[key]
+    else process.env[key] = value
+  }
+  try {
+    await fn()
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+}
+
+async function writeAgent(dir: string, name: string) {
+  await fs.mkdir(path.join(dir, "agents"), { recursive: true })
+  await Bun.write(
+    path.join(dir, "agents", `${name}.md`),
+    ["---", `description: ${name} agent`, "mode: primary", "---", "", `# ${name}`, ""].join("\n"),
+  )
 }
 
 afterEach(async () => {
@@ -70,7 +96,7 @@ test("build agent has correct default properties", async () => {
   })
 })
 
-test("plan agent denies edits except .opencode/plans/*", async () => {
+test("plan agent denies edits except .flashcode/plans/*", async () => {
   await using tmp = await tmpdir()
   await WithInstance.provide({
     directory: tmp.path,
@@ -80,7 +106,7 @@ test("plan agent denies edits except .opencode/plans/*", async () => {
       // Wildcard is denied
       expect(evalPerm(plan, "edit")).toBe("deny")
       // But specific path is allowed
-      expect(Permission.evaluate("edit", ".opencode/plans/foo.md", plan!.permission).action).toBe("allow")
+      expect(Permission.evaluate("edit", ".flashcode/plans/foo.md", plan!.permission).action).toBe("allow")
     },
   })
 })
@@ -655,7 +681,7 @@ test("skill directories are allowed for external_directory", async () => {
   await using tmp = await tmpdir({
     git: true,
     init: async (dir) => {
-      const skillDir = path.join(dir, ".opencode", "skill", "perm-skill")
+      const skillDir = path.join(dir, ".flashcode", "skill", "perm-skill")
       await Bun.write(
         path.join(skillDir, "SKILL.md"),
         `---
@@ -677,7 +703,7 @@ description: Permission skill.
       directory: tmp.path,
       fn: async () => {
         const build = await load(tmp.path, (svc) => svc.get("build"))
-        const skillDir = path.join(tmp.path, ".opencode", "skill", "perm-skill")
+        const skillDir = path.join(tmp.path, ".flashcode", "skill", "perm-skill")
         const target = path.join(skillDir, "reference", "notes.md")
         expect(Permission.evaluate("external_directory", target, build!.permission).action).toBe("allow")
       },
@@ -811,4 +837,121 @@ test("defaultAgent throws when all primary agents are disabled", async () => {
       await expect(load(tmp.path, (svc) => svc.defaultAgent())).rejects.toThrow("no primary visible agent found")
     },
   })
+})
+
+test("desktop embedded config hides default build and plan agents when a custom primary agent exists", async () => {
+  await using tmp = await tmpdir({
+    init: (dir) => writeAgent(dir, "reviewer"),
+  })
+
+  await withEnv(
+    {
+      FLASHCODE_CLIENT: "desktop",
+      FLASHCODE_EMBEDDED_CONFIG_DIR: tmp.path,
+      FLASHCODE_SHOW_DEFAULT_AGENTS: undefined,
+    },
+    async () => {
+      await WithInstance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const build = await load(tmp.path, (svc) => svc.get("build"))
+          const plan = await load(tmp.path, (svc) => svc.get("plan"))
+          const reviewer = await load(tmp.path, (svc) => svc.get("reviewer"))
+          expect(build?.hidden).toBe(true)
+          expect(plan?.hidden).toBe(true)
+          expect(reviewer?.hidden).toBeUndefined()
+          expect(await load(tmp.path, (svc) => svc.defaultAgent())).toBe("reviewer")
+        },
+      })
+    },
+  )
+})
+
+test("non-desktop clients keep default build and plan agents visible by default", async () => {
+  await using tmp = await tmpdir({
+    init: (dir) => writeAgent(dir, "reviewer"),
+  })
+
+  await withEnv(
+    {
+      FLASHCODE_CLIENT: "web",
+      FLASHCODE_EMBEDDED_CONFIG_DIR: tmp.path,
+      FLASHCODE_SHOW_DEFAULT_AGENTS: undefined,
+    },
+    async () => {
+      await WithInstance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const build = await load(tmp.path, (svc) => svc.get("build"))
+          const plan = await load(tmp.path, (svc) => svc.get("plan"))
+          expect(build?.hidden).toBeUndefined()
+          expect(plan?.hidden).toBeUndefined()
+          expect(await load(tmp.path, (svc) => svc.defaultAgent())).toBe("build")
+        },
+      })
+    },
+  )
+})
+
+test("FLASHCODE_SHOW_DEFAULT_AGENTS=false hides build and plan even when config sets them visible", async () => {
+  await using tmp = await tmpdir({
+    config: {
+      agent: {
+        build: { hidden: false },
+        plan: { hidden: false },
+        reviewer: { description: "Reviewer", mode: "primary" },
+      },
+    },
+  })
+
+  await withEnv(
+    {
+      FLASHCODE_SHOW_DEFAULT_AGENTS: "false",
+      FLASHCODE_CLIENT: "desktop",
+      FLASHCODE_EMBEDDED_CONFIG_DIR: undefined,
+    },
+    async () => {
+      await WithInstance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const build = await load(tmp.path, (svc) => svc.get("build"))
+          const plan = await load(tmp.path, (svc) => svc.get("plan"))
+          expect(build?.hidden).toBe(true)
+          expect(plan?.hidden).toBe(true)
+          expect(await load(tmp.path, (svc) => svc.defaultAgent())).toBe("reviewer")
+        },
+      })
+    },
+  )
+})
+
+test("FLASHCODE_SHOW_DEFAULT_AGENTS=true shows build and plan even when config hides them", async () => {
+  await using tmp = await tmpdir({
+    config: {
+      agent: {
+        build: { hidden: true },
+        plan: { hidden: true },
+      },
+    },
+  })
+
+  await withEnv(
+    {
+      FLASHCODE_SHOW_DEFAULT_AGENTS: "true",
+      FLASHCODE_CLIENT: "desktop",
+      FLASHCODE_EMBEDDED_CONFIG_DIR: tmp.path,
+    },
+    async () => {
+      await WithInstance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const build = await load(tmp.path, (svc) => svc.get("build"))
+          const plan = await load(tmp.path, (svc) => svc.get("plan"))
+          expect(build?.hidden).toBeUndefined()
+          expect(plan?.hidden).toBeUndefined()
+          expect(await load(tmp.path, (svc) => svc.defaultAgent())).toBe("build")
+        },
+      })
+    },
+  )
 })

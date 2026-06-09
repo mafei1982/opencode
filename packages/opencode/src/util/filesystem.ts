@@ -4,6 +4,7 @@ import { realpathSync } from "fs"
 import { dirname, join, relative, resolve as pathResolve, win32 } from "path"
 import { Readable } from "stream"
 import { pipeline } from "stream/promises"
+import { maybeDecodeEmbeddedConfigText } from "@opencode-ai/core/embedded-config"
 import { Glob } from "@opencode-ai/core/util/glob"
 
 // Fast sync version for metadata checks
@@ -36,11 +37,11 @@ export async function size(p: string): Promise<number> {
 }
 
 export async function readText(p: string): Promise<string> {
-  return readFile(p, "utf-8")
+  return maybeDecodeEmbeddedConfigText(await readFile(p, "utf-8"))
 }
 
 export async function readJson<T = unknown>(p: string): Promise<T> {
-  return JSON.parse(await readFile(p, "utf-8"))
+  return JSON.parse(await readText(p))
 }
 
 export async function readBytes(p: string): Promise<Buffer> {

@@ -133,7 +133,7 @@ export function DialogSessionList() {
   const RECENT_LIMIT = 5
 
   const options = createMemo(() => {
-    const enabled = Flag.OPENCODE_EXPERIMENTAL_SESSION_SWITCHING
+    const enabled = Flag.FLASHCODE_EXPERIMENTAL_SESSION_SWITCHING
     const today = new Date().toDateString()
     const sessionMap = new Map(
       sessions()
@@ -162,7 +162,7 @@ export function DialogSessionList() {
       const workspace = x.workspaceID ? project.workspace.get(x.workspaceID) : undefined
 
       let footer: JSX.Element | string = ""
-      if (Flag.OPENCODE_EXPERIMENTAL_WORKSPACES) {
+      if (Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES) {
         if (x.workspaceID) {
           footer = workspace ? (
             <WorkspaceLabel
@@ -236,7 +236,7 @@ export function DialogSessionList() {
         dialog.clear()
       }}
       actions={[
-        ...(Flag.OPENCODE_EXPERIMENTAL_SESSION_SWITCHING
+        ...(Flag.FLASHCODE_EXPERIMENTAL_SESSION_SWITCHING
           ? [
               {
                 command: "session.pin.toggle",

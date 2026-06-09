@@ -5,11 +5,10 @@ import os from "os"
 import path from "path"
 import * as Log from "@opencode-ai/core/util/log"
 import { Process } from "@/util/process"
-import { warn } from "console"
 
 const log = Log.create({ service: "config" })
 
-const MANAGED_PLIST_DOMAIN = "com.ni.cic-code.managed"
+const MANAGED_PLIST_DOMAINS = ["com.flashcode.managed", "com.ni.cic-code.managed"] as const
 
 // Keys injected by macOS/MDM into the managed plist that are not OpenCode config
 const PLIST_META = new Set([
@@ -21,19 +20,27 @@ const PLIST_META = new Set([
   "_manualProfile",
 ])
 
-function systemManagedConfigDir(): string {
+function systemManagedConfigDir(app: string): string {
   switch (process.platform) {
     case "darwin":
-      return "/Library/Application Support/ni-cic-code"
+      return path.join("/Library/Application Support", app)
     case "win32":
-      return path.join(process.env.ProgramData || "C:\\ProgramData", "ni-cic-code")
+      return path.join(process.env.ProgramData || "C:\\ProgramData", app)
     default:
-      return "/etc/ni-cic-code"
+      return path.join("/etc", app)
   }
 }
 
 export function managedConfigDir() {
-  return process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR || systemManagedConfigDir()
+  if (process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR) return process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR
+
+  const next = systemManagedConfigDir("flashcode")
+  if (existsSync(next)) return next
+
+  const legacy = systemManagedConfigDir("ni-cic-code")
+  if (existsSync(legacy)) return legacy
+
+  return next
 }
 
 export function parseManagedPlist(json: string): string {
@@ -48,10 +55,10 @@ export async function readManagedPreferences() {
   if (process.platform !== "darwin") return
 
   const user = os.userInfo().username
-  const paths = [
-    path.join("/Library/Managed Preferences", user, `${MANAGED_PLIST_DOMAIN}.plist`),
-    path.join("/Library/Managed Preferences", `${MANAGED_PLIST_DOMAIN}.plist`),
-  ]
+  const paths = MANAGED_PLIST_DOMAINS.flatMap((domain) => [
+    path.join("/Library/Managed Preferences", user, `${domain}.plist`),
+    path.join("/Library/Managed Preferences", `${domain}.plist`),
+  ])
 
   for (const plist of paths) {
     if (!existsSync(plist)) continue

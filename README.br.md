@@ -89,7 +89,7 @@ O script de instalação respeita a seguinte ordem de prioridade para o caminho 
 1. `$OPENCODE_INSTALL_DIR` - Diretório de instalação personalizado
 2. `$XDG_BIN_DIR` - Caminho compatível com a especificação XDG Base Directory
 3. `$HOME/bin` - Diretório binário padrão do usuário (se existir ou puder ser criado)
-4. `$HOME/.opencode/bin` - Fallback padrão
+4. `$HOME/.flashcode/bin` - Fallback padrão
 
 ```bash
 # Exemplos

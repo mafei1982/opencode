@@ -22,19 +22,19 @@ import { Server } from "../../src/server/server"
 void Log.init({ print: false })
 
 const original = {
-  OPENCODE_DISABLE_EMBEDDED_WEB_UI: Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI,
-  OPENCODE_SERVER_PASSWORD: Flag.OPENCODE_SERVER_PASSWORD,
-  OPENCODE_SERVER_USERNAME: Flag.OPENCODE_SERVER_USERNAME,
-  envPassword: process.env.OPENCODE_SERVER_PASSWORD,
-  envUsername: process.env.OPENCODE_SERVER_USERNAME,
+  FLASHCODE_DISABLE_EMBEDDED_WEB_UI: Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI,
+  FLASHCODE_SERVER_PASSWORD: Flag.FLASHCODE_SERVER_PASSWORD,
+  FLASHCODE_SERVER_USERNAME: Flag.FLASHCODE_SERVER_USERNAME,
+  envPassword: process.env.FLASHCODE_SERVER_PASSWORD,
+  envUsername: process.env.FLASHCODE_SERVER_USERNAME,
 }
 
 afterEach(() => {
-  Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = original.OPENCODE_DISABLE_EMBEDDED_WEB_UI
-  Flag.OPENCODE_SERVER_PASSWORD = original.OPENCODE_SERVER_PASSWORD
-  Flag.OPENCODE_SERVER_USERNAME = original.OPENCODE_SERVER_USERNAME
-  restoreEnv("OPENCODE_SERVER_PASSWORD", original.envPassword)
-  restoreEnv("OPENCODE_SERVER_USERNAME", original.envUsername)
+  Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = original.FLASHCODE_DISABLE_EMBEDDED_WEB_UI
+  Flag.FLASHCODE_SERVER_PASSWORD = original.FLASHCODE_SERVER_PASSWORD
+  Flag.FLASHCODE_SERVER_USERNAME = original.FLASHCODE_SERVER_USERNAME
+  restoreEnv("FLASHCODE_SERVER_PASSWORD", original.envPassword)
+  restoreEnv("FLASHCODE_SERVER_USERNAME", original.envUsername)
 })
 
 function restoreEnv(key: string, value: string | undefined) {
@@ -51,8 +51,8 @@ function app(input?: { password?: string; username?: string }) {
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
-            OPENCODE_SERVER_PASSWORD: input?.password,
-            OPENCODE_SERVER_USERNAME: input?.username,
+            FLASHCODE_SERVER_PASSWORD: input?.password,
+            FLASHCODE_SERVER_USERNAME: input?.username,
           }),
         ),
       ),
@@ -85,8 +85,8 @@ function uiApp(input?: { password?: string; username?: string; client?: Layer.La
         HttpServer.layerServices,
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
-            OPENCODE_SERVER_PASSWORD: input?.password,
-            OPENCODE_SERVER_USERNAME: input?.username,
+            FLASHCODE_SERVER_PASSWORD: input?.password,
+            FLASHCODE_SERVER_USERNAME: input?.username,
           }),
         ),
       ]),
@@ -115,7 +115,7 @@ function httpClient(response: Response, onRequest?: (request: HttpClientRequest.
 
 describe("HttpApi UI fallback", () => {
   test("serves the web UI through the experimental backend", async () => {
-    Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = true
+    Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = true
     let proxiedUrl: string | undefined
 
     const response = await uiApp({
@@ -130,11 +130,11 @@ describe("HttpApi UI fallback", () => {
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toContain("text/html")
     expect(await response.text()).toBe("<html>opencode</html>")
-    expect(proxiedUrl).toBe("https://app.opencode.ai/")
+    expect(proxiedUrl).toBe("https://app.flashcode.ai/")
   })
 
   test("strips upstream transfer encoding headers from proxied assets", async () => {
-    Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = true
+    Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = true
     let proxiedUrl: string | undefined
 
     const response = await Effect.runPromise(
@@ -174,7 +174,7 @@ describe("HttpApi UI fallback", () => {
     )
 
     expect(response.status).toBe(200)
-    expect(proxiedUrl).toBe("https://app.opencode.ai/assets/app.js")
+    expect(proxiedUrl).toBe("https://app.flashcode.ai/assets/app.js")
     expect(response.headers.get("content-encoding")).toBeNull()
     expect(response.headers.get("content-length")).not.toBe("999")
     expect(response.headers.get("content-type")).toContain("text/javascript")
@@ -185,7 +185,7 @@ describe("HttpApi UI fallback", () => {
   // forwarded through the proxy while the proxy itself re-frames the body,
   // causing browsers to fail with `ERR_INVALID_CHUNKED_ENCODING`.
   test("strips upstream transfer-encoding header from proxied assets", async () => {
-    Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = true
+    Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = true
 
     const response = await Effect.runPromise(
       Effect.gen(function* () {
@@ -293,7 +293,7 @@ describe("HttpApi UI fallback", () => {
   })
 
   test("requires server password for the web UI", async () => {
-    Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = true
+    Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = true
 
     const response = await uiApp({ password: "secret", username: "opencode" }).request("/")
 
@@ -302,7 +302,7 @@ describe("HttpApi UI fallback", () => {
   })
 
   test("accepts auth token for the web UI", async () => {
-    Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = true
+    Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = true
 
     const response = await uiApp({
       password: "secret",
@@ -315,7 +315,7 @@ describe("HttpApi UI fallback", () => {
   })
 
   test("accepts basic auth for the web UI", async () => {
-    Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = true
+    Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = true
 
     const response = await uiApp({ password: "secret", username: "opencode" }).request("/", {
       headers: { authorization: `Basic ${btoa("opencode:secret")}` },
@@ -330,7 +330,7 @@ describe("HttpApi UI fallback", () => {
   // server returning 401 breaks PWA install. These specific public assets
   // should bypass auth.
   test("serves the PWA manifest without auth even when a server password is set", async () => {
-    Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI = true
+    Flag.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = true
 
     for (const path of ["/site.webmanifest", "/web-app-manifest-192x192.png", "/web-app-manifest-512x512.png"]) {
       const response = await uiApp({

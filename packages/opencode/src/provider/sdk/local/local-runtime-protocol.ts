@@ -18,6 +18,7 @@ export type LocalRuntimeInitInput = {
     topP?: number
     topK?: number
     minP?: number
+    repeatPenalty?: number
   }
   inferenceTimeout: number
   inferenceRetries: number

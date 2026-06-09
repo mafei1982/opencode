@@ -1096,6 +1096,7 @@ export function MessageTimeline(props: {
                         actions={props.actions}
                         active={active()}
                         status={active() ? sessionStatus() : undefined}
+                        showModelInfo={platform.providerManagement !== false}
                         showReasoningSummaries={settings.general.showReasoningSummaries()}
                         shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
                         editToolDefaultOpen={settings.general.editToolPartsExpanded()}

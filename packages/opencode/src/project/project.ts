@@ -167,7 +167,7 @@ export const layer: Layer.Layer<
         }),
       )
 
-    const fakeVcs = Schema.decodeUnknownSync(Schema.optional(ProjectVcs))(Flag.OPENCODE_FAKE_VCS)
+    const fakeVcs = Schema.decodeUnknownSync(Schema.optional(ProjectVcs))(Flag.FLASHCODE_FAKE_VCS)
 
     const resolveGitPath = (cwd: string, name: string) => {
       if (!name) return cwd
@@ -282,7 +282,7 @@ export const layer: Layer.Layer<
             time: { created: Date.now(), updated: Date.now() },
           }
 
-      if (Flag.OPENCODE_EXPERIMENTAL_ICON_DISCOVERY) yield* discover(existing).pipe(Effect.ignore, Effect.forkIn(scope))
+      if (Flag.FLASHCODE_EXPERIMENTAL_ICON_DISCOVERY) yield* discover(existing).pipe(Effect.ignore, Effect.forkIn(scope))
 
       const result: Info = {
         ...existing,

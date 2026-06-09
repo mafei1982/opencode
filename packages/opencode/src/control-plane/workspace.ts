@@ -482,7 +482,7 @@ export const layer = Layer.effect(
     })
 
     const startSync = Effect.fn("Workspace.startSync")(function* (space: Info) {
-      if (!Flag.OPENCODE_EXPERIMENTAL_WORKSPACES) return
+      if (!Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES) return
 
       const adapter = getAdapter(space.projectID, space.type)
       const target = yield* EffectBridge.fromPromise(() => adapter.target(space)).pipe(
@@ -574,8 +574,8 @@ export const layer = Layer.effect(
 
       const env = {
         OPENCODE_AUTH_CONTENT: JSON.stringify(yield* auth.all()),
-        OPENCODE_WORKSPACE_ID: config.id,
-        OPENCODE_EXPERIMENTAL_WORKSPACES: "true",
+        FLASHCODE_WORKSPACE_ID: config.id,
+        FLASHCODE_EXPERIMENTAL_WORKSPACES: "true",
         OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
         OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
         OTEL_RESOURCE_ATTRIBUTES: process.env.OTEL_RESOURCE_ATTRIBUTES,

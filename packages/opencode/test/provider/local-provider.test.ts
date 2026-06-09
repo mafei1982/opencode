@@ -46,15 +46,17 @@ void mock.module("../../src/provider/sdk/local/local-language-model", () => ({
   LocalLanguageModel: MockLocalLanguageModel,
 }))
 
-const { createLocal } = await import("../../src/provider/sdk/local/local-provider")
+const { createLocal, resetLocalProviderForTests } = await import("../../src/provider/sdk/local/local-provider")
 
 describe("local provider", () => {
   afterEach(() => {
+    resetLocalProviderForTests()
     runtimeInitCalls.length = 0
     runtimeClients.length = 0
     modelInstances.length = 0
     resolveInit = undefined
     delete process.env.LLM_MODEL_PATH
+    delete process.env.LLM_REPEAT_PENALTY
   })
 
   test("deduplicates concurrent lazy initialization across provider instances", async () => {
@@ -76,5 +78,26 @@ describe("local provider", () => {
     await expect(firstLoad as Promise<any>).resolves.toEqual({ text: "ok" })
     await expect(secondLoad as Promise<any>).resolves.toEqual({ text: "ok" })
     expect(modelInstances).toHaveLength(1)
+  })
+
+  test("passes repeat penalty from env into runtime sampling params", async () => {
+    process.env.LLM_MODEL_PATH = "Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q4_K_M"
+    process.env.LLM_REPEAT_PENALTY = "1.1"
+
+    const provider = createLocal()
+    const load = provider.languageModel("default").doGenerate({} as any)
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(runtimeInitCalls).toHaveLength(1)
+    expect(runtimeInitCalls[0]).toMatchObject({
+      samplingParams: {
+        repeatPenalty: 1.1,
+      },
+    })
+
+    resolveInit?.()
+    await expect(load as Promise<any>).resolves.toEqual({ text: "ok" })
   })
 })

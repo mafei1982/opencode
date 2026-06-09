@@ -6,11 +6,34 @@ import { Context, Effect, Layer } from "effect"
 import { Flock } from "./util/flock"
 import { Flag } from "./flag/flag"
 
-const app = "ni-cic-code"
-const data = path.join(xdgData!, app)
-const cache = path.join(xdgCache!, app)
-const config = path.join(xdgConfig!, app)
-const state = path.join(xdgState!, app)
+const app = "flashcode"
+const legacyApp = "ni-cic-code"
+
+const exists = async (input: string) =>
+  fs
+    .stat(input)
+    .then(() => true)
+    .catch(() => false)
+
+async function migrateLegacyDir(base: string) {
+  const next = path.join(base, app)
+  if (await exists(next)) return next
+
+  const legacy = path.join(base, legacyApp)
+  if (!(await exists(legacy))) return next
+
+  try {
+    await fs.rename(legacy, next)
+    return next
+  } catch {
+    return legacy
+  }
+}
+
+const data = await migrateLegacyDir(xdgData!)
+const cache = await migrateLegacyDir(xdgCache!)
+const config = await migrateLegacyDir(xdgConfig!)
+const state = await migrateLegacyDir(xdgState!)
 const tmp = path.join(os.tmpdir(), app)
 
 const paths = {
@@ -60,7 +83,7 @@ export function make(input: Partial<Interface> = {}): Interface {
     home: Path.home,
     data: Path.data,
     cache: Path.cache,
-    config: Flag.OPENCODE_CONFIG_DIR ?? Path.config,
+    config: Flag.FLASHCODE_CONFIG_DIR ?? Path.config,
     state: Path.state,
     tmp: Path.tmp,
     bin: Path.bin,

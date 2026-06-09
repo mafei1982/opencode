@@ -84,8 +84,8 @@ opencode attach http://10.20.30.40:4096
 | <nobr><code>{"--continue"}</code></nobr> | `-c`  | Continua l'ultima sessione                                                                      |
 | <nobr><code>{"--session"}</code></nobr>  | `-s`  | ID sessione da continuare                                                                       |
 | <nobr><code>{"--fork"}</code></nobr>     |       | Crea un fork della sessione durante la continuazione (usa con `--continue` o `--session`)       |
-| <nobr><code>{"--password"}</code></nobr> | `-p`  | Password per l'autenticazione di base (predefinita: `OPENCODE_SERVER_PASSWORD`)                 |
-| <nobr><code>{"--username"}</code></nobr> | `-u`  | Nome utente per l'autenticazione di base (predefinito: `OPENCODE_SERVER_USERNAME` o `opencode`) |
+| <nobr><code>{"--password"}</code></nobr> | `-p`  | Password per l'autenticazione di base (predefinita: `FLASHCODE_SERVER_PASSWORD`)                 |
+| <nobr><code>{"--username"}</code></nobr> | `-u`  | Nome utente per l'autenticazione di base (predefinito: `FLASHCODE_SERVER_USERNAME` o `opencode`) |
 
 ---
 
@@ -123,7 +123,7 @@ opencode auth [command]
 
 #### login
 
-OpenCode si basa sull'elenco provider di [Models.dev](https://models.dev), quindi puoi usare `opencode auth login` per configurare le API key per qualunque provider tu voglia usare. Le credenziali vengono salvate in `~/.local/share/opencode/auth.json`.
+OpenCode si basa sull'elenco provider di [Models.dev](https://models.dev), quindi puoi usare `opencode auth login` per configurare le API key per qualunque provider tu voglia usare. Le credenziali vengono salvate in `~/.local/share/flashcode/auth.json`.
 
 ```bash
 opencode auth login
@@ -352,8 +352,8 @@ opencode run --attach http://localhost:4096 "Explain async/await in JavaScript"
 | <nobr><code>{"--format"}</code></nobr>   |       | Formato: default (formattato) o json (eventi JSON grezzi)                                       |
 | <nobr><code>{"--title"}</code></nobr>    |       | Titolo sessione (usa prompt troncato se non viene fornito un valore)                            |
 | <nobr><code>{"--attach"}</code></nobr>   |       | Attach a un server opencode in esecuzione (es. http://localhost:4096)                           |
-| <nobr><code>{"--password"}</code></nobr> | `-p`  | Password per l'autenticazione di base (predefinita: `OPENCODE_SERVER_PASSWORD`)                 |
-| <nobr><code>{"--username"}</code></nobr> | `-u`  | Nome utente per l'autenticazione di base (predefinito: `OPENCODE_SERVER_USERNAME` o `opencode`) |
+| <nobr><code>{"--password"}</code></nobr> | `-p`  | Password per l'autenticazione di base (predefinita: `FLASHCODE_SERVER_PASSWORD`)                 |
+| <nobr><code>{"--username"}</code></nobr> | `-u`  | Nome utente per l'autenticazione di base (predefinito: `FLASHCODE_SERVER_USERNAME` o `opencode`) |
 | <nobr><code>{"--dir"}</code></nobr>      |       | Directory di esecuzione, o percorso sul server remoto durante il collegamento                   |
 | <nobr><code>{"--variant"}</code></nobr>  |       | Variante del modello (sforzo di ragionamento specifico del provider)                            |
 | <nobr><code>{"--thinking"}</code></nobr> |       | Mostra blocchi di pensiero                                                                      |
@@ -369,7 +369,7 @@ Avvia un server OpenCode headless per accesso via API. Vedi le [server docs](/do
 opencode serve
 ```
 
-Avvia un server HTTP che espone accesso API alle funzionalità di opencode senza la TUI. Imposta `OPENCODE_SERVER_PASSWORD` per abilitare HTTP basic auth (username di default `opencode`).
+Avvia un server HTTP che espone accesso API alle funzionalità di opencode senza la TUI. Imposta `FLASHCODE_SERVER_PASSWORD` per abilitare HTTP basic auth (username di default `opencode`).
 
 #### Flag
 
@@ -465,7 +465,7 @@ Avvia un server OpenCode headless con interfaccia web.
 opencode web
 ```
 
-Avvia un server HTTP e apre un browser per accedere a OpenCode tramite interfaccia web. Imposta `OPENCODE_SERVER_PASSWORD` per abilitare HTTP basic auth (username di default `opencode`).
+Avvia un server HTTP e apre un browser per accedere a OpenCode tramite interfaccia web. Imposta `FLASHCODE_SERVER_PASSWORD` per abilitare HTTP basic auth (username di default `opencode`).
 
 #### Flag
 
@@ -564,30 +564,30 @@ OpenCode può essere configurato tramite variabili d'ambiente.
 
 | Variabile                             | Tipo    | Descrizione                                                 |
 | ------------------------------------- | ------- | ----------------------------------------------------------- |
-| `OPENCODE_AUTO_SHARE`                 | boolean | Condivide automaticamente le sessioni                       |
-| `OPENCODE_GIT_BASH_PATH`              | string  | Percorso all'eseguibile Git Bash su Windows                 |
-| `OPENCODE_CONFIG`                     | string  | Percorso al file di configurazione                          |
-| `OPENCODE_TUI_CONFIG`                 | string  | Percorso al file di configurazione TUI                      |
-| `OPENCODE_CONFIG_DIR`                 | string  | Percorso alla directory di configurazione                   |
-| `OPENCODE_CONFIG_CONTENT`             | string  | Contenuto JSON di config inline                             |
-| `OPENCODE_DISABLE_AUTOUPDATE`         | boolean | Disabilita i controlli automatici di aggiornamento          |
-| `OPENCODE_DISABLE_PRUNE`              | boolean | Disabilita la potatura dei dati vecchi                      |
-| `OPENCODE_DISABLE_TERMINAL_TITLE`     | boolean | Disabilita aggiornamenti automatici del titolo terminale    |
-| `OPENCODE_PERMISSION`                 | string  | Config permessi JSON inline                                 |
-| `OPENCODE_DISABLE_DEFAULT_PLUGINS`    | boolean | Disabilita i plugin di default                              |
-| `OPENCODE_DISABLE_LSP_DOWNLOAD`       | boolean | Disabilita download automatico dei server LSP               |
-| `OPENCODE_ENABLE_EXPERIMENTAL_MODELS` | boolean | Abilita modelli sperimentali                                |
-| `OPENCODE_DISABLE_AUTOCOMPACT`        | boolean | Disabilita compaction automatica del contesto               |
-| `OPENCODE_DISABLE_CLAUDE_CODE`        | boolean | Disabilita lettura da `.claude` (prompt + skill)            |
-| `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Disabilita lettura di `~/.claude/CLAUDE.md`                 |
-| `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Disabilita caricamento di `.claude/skills`                  |
-| `OPENCODE_DISABLE_MODELS_FETCH`       | boolean | Disabilita fetch dei modelli da fonti remote                |
-| `OPENCODE_FAKE_VCS`                   | string  | Provider VCS finto per scopi di test                        |
-| `OPENCODE_CLIENT`                     | string  | Identificatore client (default `cli`)                       |
-| `OPENCODE_ENABLE_EXA`                 | boolean | Abilita gli strumenti di web search Exa                     |
-| `OPENCODE_SERVER_PASSWORD`            | string  | Abilita basic auth per `serve`/`web`                        |
-| `OPENCODE_SERVER_USERNAME`            | string  | Sovrascrive lo username basic auth (default `opencode`)     |
-| `OPENCODE_MODELS_URL`                 | string  | URL personalizzato per recuperare la configurazione modelli |
+| `FLASHCODE_AUTO_SHARE`                 | boolean | Condivide automaticamente le sessioni                       |
+| `FLASHCODE_GIT_BASH_PATH`              | string  | Percorso all'eseguibile Git Bash su Windows                 |
+| `FLASHCODE_CONFIG`                     | string  | Percorso al file di configurazione                          |
+| `FLASHCODE_TUI_CONFIG`                 | string  | Percorso al file di configurazione TUI                      |
+| `FLASHCODE_CONFIG_DIR`                 | string  | Percorso alla directory di configurazione                   |
+| `FLASHCODE_CONFIG_CONTENT`             | string  | Contenuto JSON di config inline                             |
+| `FLASHCODE_DISABLE_AUTOUPDATE`         | boolean | Disabilita i controlli automatici di aggiornamento          |
+| `FLASHCODE_DISABLE_PRUNE`              | boolean | Disabilita la potatura dei dati vecchi                      |
+| `FLASHCODE_DISABLE_TERMINAL_TITLE`     | boolean | Disabilita aggiornamenti automatici del titolo terminale    |
+| `FLASHCODE_PERMISSION`                 | string  | Config permessi JSON inline                                 |
+| `FLASHCODE_DISABLE_DEFAULT_PLUGINS`    | boolean | Disabilita i plugin di default                              |
+| `FLASHCODE_DISABLE_LSP_DOWNLOAD`       | boolean | Disabilita download automatico dei server LSP               |
+| `FLASHCODE_ENABLE_EXPERIMENTAL_MODELS` | boolean | Abilita modelli sperimentali                                |
+| `FLASHCODE_DISABLE_AUTOCOMPACT`        | boolean | Disabilita compaction automatica del contesto               |
+| `FLASHCODE_DISABLE_CLAUDE_CODE`        | boolean | Disabilita lettura da `.claude` (prompt + skill)            |
+| `FLASHCODE_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Disabilita lettura di `~/.claude/CLAUDE.md`                 |
+| `FLASHCODE_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Disabilita caricamento di `.claude/skills`                  |
+| `FLASHCODE_DISABLE_MODELS_FETCH`       | boolean | Disabilita fetch dei modelli da fonti remote                |
+| `FLASHCODE_FAKE_VCS`                   | string  | Provider VCS finto per scopi di test                        |
+| `FLASHCODE_CLIENT`                     | string  | Identificatore client (default `cli`)                       |
+| `FLASHCODE_ENABLE_EXA`                 | boolean | Abilita gli strumenti di web search Exa                     |
+| `FLASHCODE_SERVER_PASSWORD`            | string  | Abilita basic auth per `serve`/`web`                        |
+| `FLASHCODE_SERVER_USERNAME`            | string  | Sovrascrive lo username basic auth (default `opencode`)     |
+| `FLASHCODE_MODELS_URL`                 | string  | URL personalizzato per recuperare la configurazione modelli |
 
 ---
 
@@ -597,16 +597,16 @@ Queste variabili d'ambiente abilitano funzionalità sperimentali che potrebbero 
 
 | Variabile                                       | Tipo    | Descrizione                                |
 | ----------------------------------------------- | ------- | ------------------------------------------ |
-| `OPENCODE_EXPERIMENTAL`                         | boolean | Abilita tutte le funzionalità sperimentali |
-| `OPENCODE_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Abilita icon discovery                     |
-| `OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Disabilita copy on select nella TUI        |
-| `OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Timeout di default per comandi bash in ms  |
-| `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Massimo token di output per risposte LLM   |
-| `OPENCODE_EXPERIMENTAL_FILEWATCHER`             | boolean | Abilita file watcher per l'intera dir      |
-| `OPENCODE_EXPERIMENTAL_OXFMT`                   | boolean | Abilita formatter oxfmt                    |
-| `OPENCODE_EXPERIMENTAL_LSP_TOOL`                | boolean | Abilita strumento LSP sperimentale         |
-| `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolean | Disabilita file watcher                    |
-| `OPENCODE_EXPERIMENTAL_EXA`                     | boolean | Abilita funzionalità Exa sperimentali      |
-| `OPENCODE_EXPERIMENTAL_LSP_TY`                  | boolean | Abilita TY LSP per i file python           |
-| `OPENCODE_EXPERIMENTAL_MARKDOWN`                | boolean | Abilita markdown sperimentale              |
-| `OPENCODE_EXPERIMENTAL_PLAN_MODE`               | boolean | Abilita plan mode                          |
+| `FLASHCODE_EXPERIMENTAL`                         | boolean | Abilita tutte le funzionalità sperimentali |
+| `FLASHCODE_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Abilita icon discovery                     |
+| `FLASHCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Disabilita copy on select nella TUI        |
+| `FLASHCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Timeout di default per comandi bash in ms  |
+| `FLASHCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Massimo token di output per risposte LLM   |
+| `FLASHCODE_EXPERIMENTAL_FILEWATCHER`             | boolean | Abilita file watcher per l'intera dir      |
+| `FLASHCODE_EXPERIMENTAL_OXFMT`                   | boolean | Abilita formatter oxfmt                    |
+| `FLASHCODE_EXPERIMENTAL_LSP_TOOL`                | boolean | Abilita strumento LSP sperimentale         |
+| `FLASHCODE_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolean | Disabilita file watcher                    |
+| `FLASHCODE_EXPERIMENTAL_EXA`                     | boolean | Abilita funzionalità Exa sperimentali      |
+| `FLASHCODE_EXPERIMENTAL_LSP_TY`                  | boolean | Abilita TY LSP per i file python           |
+| `FLASHCODE_EXPERIMENTAL_MARKDOWN`                | boolean | Abilita markdown sperimentale              |
+| `FLASHCODE_EXPERIMENTAL_PLAN_MODE`               | boolean | Abilita plan mode                          |

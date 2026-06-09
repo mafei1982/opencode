@@ -52,14 +52,30 @@ Existing process environment variables take precedence and are not overwritten b
 
 That means you can start the standalone server with either a general `.env` file or a dedicated `llm.env` file in `packages/opencode` or your current launch directory.
 
-Example `llm.env`:
+Example `.env`:
 
 ```dotenv
-LLM_PROVIDER=local
-LLM_MODEL_PATH=unsloth/Qwen3.5-35B-A3B-GGUF:Q3_K_M
+LLM_PROVIDER=local_tcp
+LLM_MODEL_PATH=Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q4_K_M
 LLM_N_CTX=262144
+LLM_N_GPU_LAYERS=65
+LLM_MAX_THREADS=7
+LLM_BATCH_SIZE=512
+LLM_MAX_CONCURRENCY=1
 LLM_FLASH_ATTENTION=true
-LLM_INFERENCE_TIMEOUT=120
+LLM_USE_MMAP=true
+LLM_USE_MLOCK=true
+# Sampling: node-llama-cpp defaults temperature to 0 (greedy) when unset, which
+# causes repetition loops / endless <think> on reasoning models. Use Qwen-style
+# thinking-model defaults.
+LLM_TEMPERATURE=0.8
+LLM_TOP_P=0.95
+LLM_TOP_K=40
+LLM_MIN_P=0.5
+LLM_CACHE_TYPE_K=q8_0
+LLM_CACHE_TYPE_V=q8_0
+LLM_INFERENCE_TIMEOUT=0
+LLM_REPEAT_PENALTY=1.1
 ```
 
 Then start the standalone server:

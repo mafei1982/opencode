@@ -1,4 +1,5 @@
 import { Effect, Option, Schema, Scope } from "effect"
+import { isEmbeddedConfigDiskFileText } from "@opencode-ai/core/embedded-config"
 import { NonNegativeInt } from "@opencode-ai/core/schema"
 import { createReadStream } from "fs"
 import * as path from "path"
@@ -247,9 +248,15 @@ export const ReadTool = Tool.define(
         return yield* Effect.fail(new Error(`Cannot read binary file: ${filepath}`))
       }
 
-      const file = yield* Effect.promise(() =>
-        lines(filepath, { limit: params.limit ?? DEFAULT_READ_LIMIT, offset: params.offset || 1 }),
-      )
+      const sampleText = Buffer.from(sample).toString("utf8")
+      const file = isEmbeddedConfigDiskFileText(sampleText)
+        ? linesFromText(yield* fs.readFileString(filepath).pipe(Effect.orDie), {
+            limit: params.limit ?? DEFAULT_READ_LIMIT,
+            offset: params.offset || 1,
+          })
+        : yield* Effect.promise(() =>
+            lines(filepath, { limit: params.limit ?? DEFAULT_READ_LIMIT, offset: params.offset || 1 }),
+          )
       if (file.count < file.offset && !(file.count === 0 && file.offset === 1)) {
         return yield* Effect.fail(
           new Error(`Offset ${file.offset} is out of range for this file (${file.count} lines)`),
@@ -336,6 +343,39 @@ async function lines(filepath: string, opts: { limit: number; offset: number }) 
   } finally {
     rl.close()
     stream.destroy()
+  }
+
+  return { raw, count, cut, more, offset: opts.offset }
+}
+
+function linesFromText(text: string, opts: { limit: number; offset: number }) {
+  const raw: string[] = []
+  const lines = /\r?\n$/.test(text) ? text.split(/\r?\n/).slice(0, -1) : text.split(/\r?\n/)
+  const start = opts.offset - 1
+  let bytes = 0
+  let count = 0
+  let cut = false
+  let more = false
+
+  for (const text of lines) {
+    count += 1
+    if (count <= start) continue
+
+    if (raw.length >= opts.limit) {
+      more = true
+      continue
+    }
+
+    const line = text.length > MAX_LINE_LENGTH ? text.substring(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX : text
+    const size = Buffer.byteLength(line, "utf-8") + (raw.length > 0 ? 1 : 0)
+    if (bytes + size > MAX_BYTES) {
+      cut = true
+      more = true
+      break
+    }
+
+    raw.push(line)
+    bytes += size
   }
 
   return { raw, count, cut, more, offset: opts.offset }

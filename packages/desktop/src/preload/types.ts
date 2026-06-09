@@ -27,6 +27,9 @@ export type TitlebarTheme = {
 
 export type WindowConfig = {
   updaterEnabled: boolean
+  defaultTheme?: string
+  showSettings: boolean
+  providerManagement: boolean
 }
 
 export type ElectronAPI = {

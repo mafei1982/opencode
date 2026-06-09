@@ -11,7 +11,7 @@ opencode와 문제를 디버그하려면 로그와 로컬 데이터를 확인하
 
 로그 파일은 다음과 같습니다:
 
--**macOS/리눅스**: `~/.local/share/opencode/log/`
+-**macOS/리눅스**: `~/.local/share/flashcode/log/`
 
 - **Windows**: 압박 `WIN+R`와 풀 `%USERPROFILE%\.local\share\opencode\log`
 
@@ -25,7 +25,7 @@ opencode와 문제를 디버그하려면 로그와 로컬 데이터를 확인하
 
 opencode 저장 세션 데이터 및 디스크에 다른 응용 데이터:
 
--**macOS/리눅스**: `~/.local/share/opencode/`
+-**macOS/리눅스**: `~/.local/share/flashcode/`
 
 - **Windows**: 압박 `WIN+R`와 풀 `%USERPROFILE%\.local\share\opencode`
 
@@ -59,9 +59,9 @@ opencode 데스크톱은 배경에서 로컬 opencode 서버 (`opencode-cli` sid
 
 글로벌 설정 파일을 열고 `plugin` 키를 찾습니다.
 
--**macOS/리눅스**: `~/.config/opencode/opencode.jsonc` (또는 `~/.config/opencode/opencode.json`) -**macOS/Linux** (외부 설치): `~/.local/share/opencode/opencode.jsonc`
+-**macOS/리눅스**: `~/.config/flashcode/flashcode.jsonc` (또는 `~/.config/flashcode/flashcode.json`) -**macOS/Linux** (외부 설치): `~/.local/share/flashcode/flashcode.jsonc`
 
-- **Windows**: 압박 `WIN+R`와 풀 `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **Windows**: 압박 `WIN+R`와 풀 `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 구성 된 플러그인이있는 경우, 일시적으로 키를 제거하거나 빈 배열로 설정하여 비활성화하십시오.
 
@@ -76,10 +76,10 @@ opencode 데스크톱은 배경에서 로컬 opencode 서버 (`opencode-cli` sid
 
 opencode는 디스크에서 로컬 플러그인을로드 할 수 있습니다. Temporarily 이동 이러한 방법 (또는 폴더 이름을 변경) 및 데스크톱 응용 프로그램을 다시 시작:
 
-- **글로벌 플러그인** -**macOS/리눅스**: `~/.config/opencode/plugins/`
+- **글로벌 플러그인** -**macOS/리눅스**: `~/.config/flashcode/plugins/`
 - **Windows**: 압박 `WIN+R`와 풀 `%USERPROFILE%\.config\opencode\plugins`
 - **프로젝트 플러그인** (프로젝트 설정만 사용)
-- `<your-project>/.opencode/plugins/`
+- `<your-project>/.flashcode/plugins/`
 
 앱이 다시 일하는 경우, 재 활성화 플러그인은 한 번에 문제가 발생할 수 있습니다.
 
@@ -92,9 +92,9 @@ opencode는 디스크에서 로컬 플러그인을로드 할 수 있습니다. T
 1. Quit opencode 데스크톱 완전히.
 2. 캐시 디렉토리 삭제:
 
--**macOS**: 찾기 -> `Cmd+Shift+G` -> 붙여넣기 `~/.cache/opencode`
+-**macOS**: 찾기 -> `Cmd+Shift+G` -> 붙여넣기 `~/.cache/flashcode`
 
-- **Linux**: `~/.cache/opencode` 삭제 (또는 `rm -rf ~/.cache/opencode` 실행)
+- **Linux**: `~/.cache/flashcode` 삭제 (또는 `rm -rf ~/.cache/flashcode` 실행)
 - **Windows**: 압박 `WIN+R`와 풀 `%USERPROFILE%\.cache\opencode`
 
 3. Restart opencode 데스크탑.
@@ -113,7 +113,7 @@ Home 화면에서 Server Picker를 열려면 서버 이름(상태 점)을 클릭
 
 #### 설정에서 server.port/server.hostname 제거
 
-`opencode.json(c)`가 `server` 섹션을 포함하면 일시적으로 제거하고 데스크톱 앱을 다시 시작합니다.
+`flashcode.json(c)`가 `server` 섹션을 포함하면 일시적으로 제거하고 데스크톱 앱을 다시 시작합니다.
 
 ### 환경 변수 확인
 
@@ -244,7 +244,7 @@ ProviderInitError가 발생하면 잘못된 구성이나 손상된 구성이 있
 2. 문제가 발생하면 저장된 구성을 삭제하십시오.
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
 Windows에서, `WIN+R`를 누르고 삭제하십시오: `%USERPROFILE%\.local\share\opencode`
@@ -262,7 +262,7 @@ API 호출 오류가 발생하면, 이 공급 업체 패키지로 인해 발생�
 1. 공급자 포장 캐시를 지우십시오:
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
 Windows에서, `WIN+R`를 누르고 삭제하십시오: `%USERPROFILE%\.cache\opencode`

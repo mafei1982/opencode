@@ -60,10 +60,10 @@ Wenn `localhost` in deiner Umgebung nicht funktioniert, nutze stattdessen die WS
 :::
 
 :::caution
-Wenn du `--hostname 0.0.0.0` verwendest, setze `OPENCODE_SERVER_PASSWORD`, um den Server zu schuetzen.
+Wenn du `--hostname 0.0.0.0` verwendest, setze `FLASHCODE_SERVER_PASSWORD`, um den Server zu schuetzen.
 
 ```bash
-OPENCODE_SERVER_PASSWORD=your-password opencode serve --hostname 0.0.0.0
+FLASHCODE_SERVER_PASSWORD=your-password opencode serve --hostname 0.0.0.0
 ```
 
 :::
@@ -112,4 +112,4 @@ Fuer die beste Performance kannst du dein Repo direkt in das WSL-Dateisystem klo
 
 - Lass OpenCode in WSL laufen, auch wenn das Projekt auf einem Windows-Laufwerk liegt
 - Nutze die [WSL-Extension](https://code.visualstudio.com/docs/remote/wsl) von VS Code fuer einen integrierten Workflow
-- OpenCode-Konfiguration und Sitzungen liegen in WSL unter `~/.local/share/opencode/`
+- OpenCode-Konfiguration und Sitzungen liegen in WSL unter `~/.local/share/flashcode/`

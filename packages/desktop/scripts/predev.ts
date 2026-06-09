@@ -3,8 +3,8 @@ import { existsSync, copyFileSync, unlinkSync } from "node:fs"
 
 await $`bun ./scripts/copy-icons.ts ${process.env.OPENCODE_CHANNEL ?? "dev"}`
 
-// Copy LLM .env file into resources/ if LLM_ENV_FILE is specified
-const llmEnvFile = process.env.LLM_ENV_FILE
+// Copy LLM env file into resources/ so dev mode can read either llm.env or .env.
+const llmEnvFile = process.env.LLM_ENV_FILE || (existsSync("llm.env") ? "llm.env" : existsSync(".env") ? ".env" : "")
 const llmEnvDest = "resources/llm.env"
 if (llmEnvFile) {
   if (!existsSync(llmEnvFile)) {

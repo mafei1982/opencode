@@ -11,7 +11,7 @@ For at fejlfinde problemer med OpenCode, start med at tjekke logfilerne og de lo
 
 Logfiler skrives til:
 
-- **macOS/Linux**: `~/.local/share/opencode/log/`
+- **macOS/Linux**: `~/.local/share/flashcode/log/`
 - **Windows**: Tryk `WIN+R` og indsæt `%USERPROFILE%\.local\share\opencode\log`
 
 Logfiler navngives med tidsstempler (f.eks. `2025-01-09T123456.log`) og de sidste 10 logfiler beholdes.
@@ -24,7 +24,7 @@ Du kan angive logniveauet med kommandolinjeflaget `--log-level` for at få mere 
 
 opencode gemmer sessionsdata og andre applikationsdata på disken på:
 
-- **macOS/Linux**: `~/.local/share/opencode/`
+- **macOS/Linux**: `~/.local/share/flashcode/`
 - **Windows**: Tryk `WIN+R` og indsæt `%USERPROFILE%\.local\share\opencode`
 
 Denne mappe indeholder:
@@ -57,9 +57,9 @@ Hvis skrivebordsappen går ned ved opstart, hænger eller opfører sig mærkelig
 
 Åbn den globale konfigurationsfil og se efter en `plugin`-nøgle.
 
-- **macOS/Linux**: `~/.config/opencode/opencode.jsonc` (eller `~/.config/opencode/opencode.json`)
-- **macOS/Linux** (ældre installationer): `~/.local/share/opencode/opencode.jsonc`
-- **Windows**: Tryk `WIN+R` og indsæt `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **macOS/Linux**: `~/.config/flashcode/flashcode.jsonc` (eller `~/.config/flashcode/flashcode.json`)
+- **macOS/Linux** (ældre installationer): `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows**: Tryk `WIN+R` og indsæt `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 Hvis du har konfigureret plugins, deaktiver dem midlertidigt ved at fjerne nøglen eller sætte den til et tomt array:
 
@@ -75,10 +75,10 @@ Hvis du har konfigureret plugins, deaktiver dem midlertidigt ved at fjerne nøgl
 OpenCode kan også indlæse lokale plugins fra disken. Flyt disse midlertidigt væk (eller giv mappen nyt navn) og start skrivebordsappen på ny:
 
 - **Globale plugins**
-  - **macOS/Linux**: `~/.config/opencode/plugins/`
+  - **macOS/Linux**: `~/.config/flashcode/plugins/`
   - **Windows**: Tryk `WIN+R` og indsæt `%USERPROFILE%\.config\opencode\plugins`
 - **Projektplugins** (kun hvis du bruger konfiguration per projekt)
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 Hvis appen begynder at fungere igen, aktiverer du plugins én ad gangen for at finde ud af, hvilken som forårsager problemet.
 
@@ -91,8 +91,8 @@ Hvis deaktivering af plugins ikke hjælper (eller en plugin-installation sidder 
 1. Afslut OpenCode Desktop helt.
 2. Slet cache-mappen:
 
-- **macOS**: Finder -> `Cmd+Shift+G` -> indsæt `~/.cache/opencode`
-- **Linux**: slet `~/.cache/opencode` (eller kør `rm -rf ~/.cache/opencode`)
+- **macOS**: Finder -> `Cmd+Shift+G` -> indsæt `~/.cache/flashcode`
+- **Linux**: slet `~/.cache/flashcode` (eller kør `rm -rf ~/.cache/flashcode`)
 - **Windows**: Tryk `WIN+R` og indsæt `%USERPROFILE%\.cache\opencode`
 
 3. Start OpenCode Desktop på ny.
@@ -111,7 +111,7 @@ Fra startskærmen klikker du på servernavnet (med statusprikken) for at åbne s
 
 #### Fjern `server.port` / `server.hostname` fra din konfiguration
 
-Hvis `opencode.json(c)` indeholder en `server`-del, fjern den midlertidigt og start skrivebordsappen på ny.
+Hvis `flashcode.json(c)` indeholder en `server`-del, fjern den midlertidigt og start skrivebordsappen på ny.
 
 #### Tjek miljøvariabler
 
@@ -241,7 +241,7 @@ For at løse dette:
 2. Hvis problemet vedvarer, prøv at tømme den gemte konfiguration:
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
    På Windows, tryk `WIN+R` og slet: `%USERPROFILE%\.local\share\opencode`
@@ -259,7 +259,7 @@ For at løse problemer med udbyderpakke:
 1. Tøm udbyderens pakkecache:
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
    På Windows, tryk `WIN+R` og slet: `%USERPROFILE%\.cache\opencode`

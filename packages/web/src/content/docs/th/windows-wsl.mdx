@@ -59,10 +59,10 @@ WSL ให้ประสิทธิภาพระบบไฟล์ที่�
 :::
 
 :::caution
-เมื่อใช้ `--hostname 0.0.0.0` ให้ตั้งค่า `OPENCODE_SERVER_PASSWORD` เพื่อป้องกันเซิร์ฟเวอร์
+เมื่อใช้ `--hostname 0.0.0.0` ให้ตั้งค่า `FLASHCODE_SERVER_PASSWORD` เพื่อป้องกันเซิร์ฟเวอร์
 
 ```bash
-OPENCODE_SERVER_PASSWORD=your-password opencode serve --hostname 0.0.0.0
+FLASHCODE_SERVER_PASSWORD=your-password opencode serve --hostname 0.0.0.0
 ```
 
 :::
@@ -110,4 +110,4 @@ opencode
 
 - แม้โปรเจกต์จะอยู่บนไดรฟ์ Windows ก็ควรรัน OpenCode ใน WSL เพื่อการเข้าถึงไฟล์ที่ลื่นกว่า
 - ใช้ OpenCode ควบคู่กับ [WSL extension ของ VS Code](https://code.visualstudio.com/docs/remote/wsl) เพื่อเวิร์กโฟลว์ที่ต่อเนื่อง
-- การตั้งค่าและเซสชันของ OpenCode จะถูกเก็บในสภาพแวดล้อม WSL ที่ `~/.local/share/opencode/`
+- การตั้งค่าและเซสชันของ OpenCode จะถูกเก็บในสภาพแวดล้อม WSL ที่ `~/.local/share/flashcode/`

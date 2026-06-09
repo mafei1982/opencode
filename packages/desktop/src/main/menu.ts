@@ -8,6 +8,7 @@ type Deps = {
   checkForUpdates: () => void
   reload: () => void
   relaunch: () => void
+  showSettings: boolean
 }
 
 export function createMenu(deps: Deps) {
@@ -23,11 +24,15 @@ export function createMenu(deps: Deps) {
           enabled: UPDATER_ENABLED,
           click: () => deps.checkForUpdates(),
         },
-        {
-          label: "Settings",
-          accelerator: "Cmd+,",
-          click: () => deps.trigger("settings.open"),
-        },
+        ...(deps.showSettings
+          ? [
+              {
+                label: "Settings",
+                accelerator: "Cmd+,",
+                click: () => deps.trigger("settings.open"),
+              } satisfies Electron.MenuItemConstructorOptions,
+            ]
+          : []),
         {
           label: "Reload Webview",
           click: () => deps.reload(),

@@ -11,7 +11,7 @@ To debug issues with OpenCode, start by checking the logs and local data it stor
 
 Log files are written to:
 
-- **macOS/Linux**: `~/.local/share/opencode/log/`
+- **macOS/Linux**: `~/.local/share/flashcode/log/`
 - **Windows**: Press `WIN+R` and paste `%USERPROFILE%\.local\share\opencode\log`
 
 Log files are named with timestamps (e.g., `2025-01-09T123456.log`) and the most recent 10 log files are kept.
@@ -24,7 +24,7 @@ You can set the log level with the `--log-level` command-line option to get more
 
 opencode stores session data and other application data on disk at:
 
-- **macOS/Linux**: `~/.local/share/opencode/`
+- **macOS/Linux**: `~/.local/share/flashcode/`
 - **Windows**: Press `WIN+R` and paste `%USERPROFILE%\.local\share\opencode`
 
 This directory contains:
@@ -57,9 +57,9 @@ If the desktop app is crashing on launch, hanging, or behaving strangely, start 
 
 Open your global config file and look for a `plugin` key.
 
-- **macOS/Linux**: `~/.config/opencode/opencode.jsonc` (or `~/.config/opencode/opencode.json`)
-- **macOS/Linux** (older installs): `~/.local/share/opencode/opencode.jsonc`
-- **Windows**: Press `WIN+R` and paste `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **macOS/Linux**: `~/.config/flashcode/flashcode.jsonc` (or `~/.config/flashcode/flashcode.json`)
+- **macOS/Linux** (older installs): `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows**: Press `WIN+R` and paste `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 If you have plugins configured, temporarily disable them by removing the key or setting it to an empty array:
 
@@ -75,10 +75,10 @@ If you have plugins configured, temporarily disable them by removing the key or 
 OpenCode can also load local plugins from disk. Temporarily move these out of the way (or rename the folder) and restart the desktop app:
 
 - **Global plugins**
-  - **macOS/Linux**: `~/.config/opencode/plugins/`
+  - **macOS/Linux**: `~/.config/flashcode/plugins/`
   - **Windows**: Press `WIN+R` and paste `%USERPROFILE%\.config\opencode\plugins`
 - **Project plugins** (only if you use per-project config)
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 If the app starts working again, re-enable plugins one at a time to find which one is causing the issue.
 
@@ -91,8 +91,8 @@ If disabling plugins doesn't help (or a plugin install is stuck), clear the cach
 1. Quit OpenCode Desktop completely.
 2. Delete the cache directory:
 
-- **macOS**: Finder -> `Cmd+Shift+G` -> paste `~/.cache/opencode`
-- **Linux**: delete `~/.cache/opencode` (or run `rm -rf ~/.cache/opencode`)
+- **macOS**: Finder -> `Cmd+Shift+G` -> paste `~/.cache/flashcode`
+- **Linux**: delete `~/.cache/flashcode` (or run `rm -rf ~/.cache/flashcode`)
 - **Windows**: Press `WIN+R` and paste `%USERPROFILE%\.cache\opencode`
 
 3. Restart OpenCode Desktop.
@@ -111,7 +111,7 @@ From the Home screen, click the server name (with the status dot) to open the Se
 
 #### Remove `server.port` / `server.hostname` from your config
 
-If your `opencode.json(c)` contains a `server` section, temporarily remove it and restart the desktop app.
+If your `flashcode.json(c)` contains a `server` section, temporarily remove it and restart the desktop app.
 
 #### Check environment variables
 
@@ -241,7 +241,7 @@ To resolve this:
 2. If the issue persists, try clearing your stored configuration:
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
    On Windows, press `WIN+R` and delete: `%USERPROFILE%\.local\share\opencode`
@@ -259,7 +259,7 @@ To resolve provider package issues:
 1. Clear the provider package cache:
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
    On Windows, press `WIN+R` and delete: `%USERPROFILE%\.cache\opencode`

@@ -11,7 +11,7 @@ Wenn OpenCode Probleme macht, starte mit Logs und lokal gespeicherten Daten auf 
 
 Logdateien werden hier gespeichert:
 
-- **macOS/Linux**: `~/.local/share/opencode/log/`
+- **macOS/Linux**: `~/.local/share/flashcode/log/`
 - **Windows**: Druecke `WIN+R` und fuege ein: `%USERPROFILE%\.local\share\opencode\log`
 
 Dateinamen enthalten Zeitstempel (z. B. `2025-01-09T123456.log`) und es bleiben die letzten 10 Logs erhalten.
@@ -24,7 +24,7 @@ Mit `--log-level` bekommst du detailliertere Diagnoseinfos, z. B. `opencode --lo
 
 opencode speichert Sitzungs- und App-Daten auf der Festplatte unter:
 
-- **macOS/Linux**: `~/.local/share/opencode/`
+- **macOS/Linux**: `~/.local/share/flashcode/`
 - **Windows**: Druecke `WIN+R` und fuege ein: `%USERPROFILE%\.local\share\opencode`
 
 Dieses Verzeichnis enthaelt:
@@ -58,9 +58,9 @@ Wenn die Desktop-App beim Start abstuerzt, haengt oder sich seltsam verhaelt, de
 
 Oeffne deine globale Konfigurationsdatei und suche nach dem `plugin`-Schluessel.
 
-- **macOS/Linux**: `~/.config/opencode/opencode.jsonc` (oder `~/.config/opencode/opencode.json`)
-- **macOS/Linux** (aeltere Installationen): `~/.local/share/opencode/opencode.jsonc`
-- **Windows**: Druecke `WIN+R` und fuege ein: `%USERPROFILE%\.config\opencode\opencode.jsonc`
+- **macOS/Linux**: `~/.config/flashcode/flashcode.jsonc` (oder `~/.config/flashcode/flashcode.json`)
+- **macOS/Linux** (aeltere Installationen): `~/.local/share/flashcode/flashcode.jsonc`
+- **Windows**: Druecke `WIN+R` und fuege ein: `%USERPROFILE%\.config\opencode\flashcode.jsonc`
 
 Wenn du Plugins konfiguriert hast, deaktiviere sie voruebergehend, indem du den Schluessel entfernst oder auf ein leeres Array setzt:
 
@@ -76,10 +76,10 @@ Wenn du Plugins konfiguriert hast, deaktiviere sie voruebergehend, indem du den 
 OpenCode kann auch lokale Plugins von der Festplatte laden. Verschiebe diese voruebergehend (oder benenne den Ordner um) und starte die Desktop-App neu:
 
 - **Globale Plugins**
-  - **macOS/Linux**: `~/.config/opencode/plugins/`
+  - **macOS/Linux**: `~/.config/flashcode/plugins/`
   - **Windows**: Druecke `WIN+R` und fuege ein: `%USERPROFILE%\.config\opencode\plugins`
 - **Projekt-Plugins** (nur bei projektspezifischer Konfig)
-  - `<your-project>/.opencode/plugins/`
+  - `<your-project>/.flashcode/plugins/`
 
 Wenn die App wieder funktioniert, aktiviere Plugins nacheinander, um den Verursacher zu finden.
 
@@ -92,8 +92,8 @@ Wenn das Deaktivieren von Plugins nicht hilft (oder eine Plugin-Installation hae
 1. Beende OpenCode Desktop komplett.
 2. Loesche das Cache-Verzeichnis:
 
-- **macOS**: Finder -> `Cmd+Shift+G` -> einfuegen: `~/.cache/opencode`
-- **Linux**: loesche `~/.cache/opencode` (oder fuehre aus: `rm -rf ~/.cache/opencode`)
+- **macOS**: Finder -> `Cmd+Shift+G` -> einfuegen: `~/.cache/flashcode`
+- **Linux**: loesche `~/.cache/flashcode` (oder fuehre aus: `rm -rf ~/.cache/flashcode`)
 - **Windows**: Druecke `WIN+R` und fuege ein: `%USERPROFILE%\.cache\opencode`
 
 3. Starte OpenCode Desktop neu.
@@ -112,7 +112,7 @@ Klicke im Startbildschirm auf den Servernamen (mit dem Statuspunkt), um die Serv
 
 #### `server.port` / `server.hostname` aus Konfiguration entfernen
 
-Wenn deine `opencode.json(c)` einen `server`-Abschnitt enthaelt, entferne ihn voruebergehend und starte die Desktop-App neu.
+Wenn deine `flashcode.json(c)` einen `server`-Abschnitt enthaelt, entferne ihn voruebergehend und starte die Desktop-App neu.
 
 #### Umgebungsvariablen prüfen
 
@@ -241,7 +241,7 @@ Zur Loesung:
 2. Wenn das Problem besteht, versuche deine gespeicherte Konfiguration zu loeschen:
 
    ```bash
-   rm -rf ~/.local/share/opencode
+   rm -rf ~/.local/share/flashcode
    ```
 
    Unter Windows druecke `WIN+R` und loesche: `%USERPROFILE%\.local\share\opencode`
@@ -259,7 +259,7 @@ Um Provider-Paket-Probleme zu loesen:
 1. Leere den Provider-Paket-Cache:
 
    ```bash
-   rm -rf ~/.cache/opencode
+   rm -rf ~/.cache/flashcode
    ```
 
    Unter Windows druecke `WIN+R` und loesche: `%USERPROFILE%\.cache\opencode`

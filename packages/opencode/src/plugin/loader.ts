@@ -9,6 +9,7 @@ import {
   type PluginSource,
 } from "./shared"
 import { ConfigPlugin } from "@/config/plugin"
+import { resolveEmbeddedConfigModuleImport } from "@opencode-ai/core/embedded-config"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 
 export namespace PluginLoader {
@@ -119,7 +120,7 @@ export namespace PluginLoader {
   export async function load(row: Resolved): Promise<{ ok: true; value: Loaded } | { ok: false; error: unknown }> {
     let mod
     try {
-      mod = await import(row.entry)
+      mod = await import(await resolveEmbeddedConfigModuleImport(row.entry))
     } catch (error) {
       return { ok: false, error }
     }

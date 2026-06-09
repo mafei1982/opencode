@@ -89,7 +89,7 @@ Tập lệnh cài đặt tuân theo thứ tự ưu tiên sau cho đường dẫn
 1. `$OPENCODE_INSTALL_DIR` - Thư mục cài đặt tùy chỉnh
 2. `$XDG_BIN_DIR` - Đường dẫn tuân thủ XDG Base Directory Specification
 3. `$HOME/bin` - Thư mục nhị phân tiêu chuẩn của người dùng (nếu tồn tại hoặc có thể tạo)
-4. `$HOME/.opencode/bin` - Mặc định dự phòng
+4. `$HOME/.flashcode/bin` - Mặc định dự phòng
 
 ```bash
 # Ví dụ

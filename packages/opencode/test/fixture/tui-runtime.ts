@@ -28,7 +28,7 @@ export function createTuiResolvedConfig(input: ResolvedInput = {}): TuiConfig.Re
 }
 
 export function mockTuiRuntime(dir: string, plugin: PluginSpec[], opts?: { plugin_enabled?: Record<string, boolean> }) {
-  process.env.OPENCODE_PLUGIN_META_FILE = path.join(dir, "plugin-meta.json")
+  process.env.FLASHCODE_PLUGIN_META_FILE = path.join(dir, "plugin-meta.json")
   const plugin_origins = plugin.map((spec) => ({
     spec,
     scope: "local" as const,
@@ -48,7 +48,7 @@ export function mockTuiRuntime(dir: string, plugin: PluginSpec[], opts?: { plugi
     restore: () => {
       cwd.mockRestore()
       wait.mockRestore()
-      delete process.env.OPENCODE_PLUGIN_META_FILE
+      delete process.env.FLASHCODE_PLUGIN_META_FILE
     },
   }
 }

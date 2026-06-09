@@ -117,7 +117,7 @@ const appBindingCommands = [
 ] as const
 
 function rendererConfig(_config: TuiConfig.Resolved): CliRendererConfig {
-  const mouseEnabled = !Flag.OPENCODE_DISABLE_MOUSE && (_config.mouse ?? true)
+  const mouseEnabled = !Flag.FLASHCODE_DISABLE_MOUSE && (_config.mouse ?? true)
 
   return {
     externalOutputMode: "passthrough",
@@ -315,7 +315,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
   const offSelectionKeys = keymap.intercept(
     "key",
     ({ event }) => {
-      if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
+      if (!Flag.FLASHCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
       Selection.handleSelectionKey(renderer, toast, event)
     },
     { priority: 1 },
@@ -339,7 +339,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
 
   // Update terminal window title based on current route and session
   createEffect(() => {
-    if (!terminalTitleEnabled() || Flag.OPENCODE_DISABLE_TERMINAL_TITLE) return
+    if (!terminalTitleEnabled() || Flag.FLASHCODE_DISABLE_TERMINAL_TITLE) return
 
     if (route.data.type === "home") {
       renderer.setTerminalTitle("OpenCode")
@@ -473,7 +473,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           dialog.clear()
         },
       },
-      ...(Flag.OPENCODE_EXPERIMENTAL_SESSION_SWITCHING
+      ...(Flag.FLASHCODE_EXPERIMENTAL_SESSION_SWITCHING
         ? [
             {
               name: "session.cycle_recent",
@@ -820,7 +820,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     enabled: command.matcher,
     bindings: tuiConfig.keybinds.gather(
       "app",
-      Flag.OPENCODE_EXPERIMENTAL_SESSION_SWITCHING
+      Flag.FLASHCODE_EXPERIMENTAL_SESSION_SWITCHING
         ? appBindingCommands
         : appBindingCommands.filter(
             (c) => !c.startsWith("session.cycle_recent") && !c.startsWith("session.quick_switch"),
@@ -943,16 +943,16 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       flexDirection="column"
       backgroundColor={theme.background}
       onMouseDown={(evt) => {
-        if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
+        if (!Flag.FLASHCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
         if (evt.button !== MouseButton.RIGHT) return
 
         if (!Selection.copy(renderer, toast)) return
         evt.preventDefault()
         evt.stopPropagation()
       }}
-      onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
+      onMouseUp={Flag.FLASHCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
-      <Show when={Flag.OPENCODE_SHOW_TTFD}>
+      <Show when={Flag.FLASHCODE_SHOW_TTFD}>
         <TimeToFirstDraw />
       </Show>
       <Show when={ready()}>

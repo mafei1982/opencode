@@ -423,11 +423,11 @@ export const layer: Layer.Layer<
         { sessionID: input.sessionID },
         { context: [], prompt: undefined },
       )
-      const tailMessages = structuredClone(selected.tail)
+      const tailMessages = MessageV2.stripPromptMetadata(structuredClone(selected.tail))
       yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: tailMessages })
       const tail = yield* serialize({ messages: tailMessages, model })
       const nextPrompt = compacting.prompt ?? buildPrompt({ previousSummary, context: compacting.context, tail })
-      const msgs = structuredClone(selected.head)
+      const msgs = MessageV2.stripPromptMetadata(structuredClone(selected.head))
       yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
       const modelMessages = yield* MessageV2.toModelMessagesEffect(msgs, model, {
         stripMedia: true,
@@ -583,7 +583,7 @@ export const layer: Layer.Layer<
             parts: [],
           },
         )
-        if (Flag.OPENCODE_EXPERIMENTAL_EVENT_SYSTEM) {
+        if (Flag.FLASHCODE_EXPERIMENTAL_EVENT_SYSTEM) {
           yield* sync.run(SessionEvent.Compaction.Ended.Sync, {
             sessionID: input.sessionID,
             timestamp: DateTime.makeUnsafe(Date.now()),
@@ -618,7 +618,7 @@ export const layer: Layer.Layer<
         auto: input.auto,
         overflow: input.overflow,
       })
-      if (Flag.OPENCODE_EXPERIMENTAL_EVENT_SYSTEM) {
+      if (Flag.FLASHCODE_EXPERIMENTAL_EVENT_SYSTEM) {
         yield* sync.run(SessionEvent.Compaction.Started.Sync, {
           sessionID: input.sessionID,
           timestamp: DateTime.makeUnsafe(Date.now()),

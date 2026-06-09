@@ -1,1 +1,21 @@
-../../ui/src/assets/favicon/favicon-v3.svg
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="38" height="25" xmlns:svg="http://www.w3.org/2000/svg" enable-background="new 0 0 340 181.95" xml:space="preserve"><metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Description><dc:creator>RealFaviconGenerator</dc:creator><dc:source>https://realfavicongenerator.net</dc:source></rdf:Description></rdf:RDF></metadata><style type="text/css">.st0{fill:none;}
+	.st1{fill:#FFFFFF;}
+	.st2{fill:#03B585;}
+	.st3{fill:#05FF87;}
+	.st4{fill:#001489;}
+	.st5{fill:#00948C;}
+	.st6{fill:#77787B;}</style><g class="layer">
+  <title>Layer 1</title>
+  <rect class="st0" height="23.85" id="svg_2" width="35.74" x="0" y="0"></rect>
+  <g id="svg_9">
+   <g id="svg_10">
+    <path class="st2" d="m17,1.21c4.28,0 7.67,3.46 7.67,7.93l0,15.07l-7.67,0l0,-15.33l-7.67,0l0,-7.67l7.67,0z" id="svg_11"></path>
+   </g>
+   <g id="svg_12">
+    <rect class="st2" height="15.33" id="svg_13" width="7.67" x="1.67" y="8.88"></rect>
+   </g>
+   <g id="svg_14">
+    <path class="st2" d="m36.56,1.21l0,23c-4.3,0 -7.67,-3.52 -7.67,-7.67l0,-15.33l7.67,0z" id="svg_15"></path>
+   </g>
+  </g>
+ </g></svg>

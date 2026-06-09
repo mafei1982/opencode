@@ -35,7 +35,7 @@ inputs:
     required: false
 
   oidc_base_url:
-    description: "Base URL for OIDC token exchange API. Only required when running a custom GitHub App install. Defaults to https://api.opencode.ai"
+    description: "Base URL for OIDC token exchange API. Only required when running a custom GitHub App install. Defaults to https://api.flashcode.ai"
     required: false
 
 runs:
@@ -52,7 +52,7 @@ runs:
       id: cache
       uses: actions/cache@v4
       with:
-        path: ~/.opencode/bin
+        path: ~/.flashcode/bin
         key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
 
     - name: Install opencode
@@ -62,7 +62,7 @@ runs:
 
     - name: Add opencode to PATH
       shell: bash
-      run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+      run: echo "$HOME/.flashcode/bin" >> $GITHUB_PATH
 
     - name: Run opencode
       shell: bash

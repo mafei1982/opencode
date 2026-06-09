@@ -3,6 +3,7 @@ import { defineConfig } from "electron-vite"
 import appPlugin from "@opencode-ai/app/vite"
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
+import { createEmbeddedConfigBundle } from "../core/src/embedded-config"
 
 const channel = (() => {
   const raw = process.env.OPENCODE_CHANNEL
@@ -31,19 +32,26 @@ const sentry =
       })
     : false
 
-const OPENCODE_EMBED_CONFIG_DIR = process.env.OPENCODE_EMBED_CONFIG_DIR
+const FLASHCODE_EMBEDDED_CONFIG_DIR = process.env.FLASHCODE_EMBEDDED_CONFIG_DIR
 const OPENCODE_DISABLE_AGENT_BUILD = process.env.OPENCODE_DISABLE_AGENT_BUILD === "true"
 const OPENCODE_DISABLE_AGENT_PLAN = process.env.OPENCODE_DISABLE_AGENT_PLAN === "true"
 
 const BINARY_EXTENSIONS = new Set([".exe", ".dll", ".node", ".pdb", ".dylib", ".so", ".config", ".xml"])
+const IGNORED_EMBEDDED_CONFIG_FILES = new Set([".gitignore", "package.json", "package-lock.json"])
 
 async function readDirRecursive(dir: string, base = ""): Promise<Record<string, string>> {
   const entries: Record<string, string> = {}
   for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
     const rel = base ? `${base}/${entry.name}` : entry.name
+    const name = entry.name.toLowerCase()
     if (entry.isDirectory()) {
+      if (name === "node_modules") continue
       Object.assign(entries, await readDirRecursive(path.join(dir, entry.name), rel))
-    } else if (!BINARY_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+      continue
+    }
+
+    if (IGNORED_EMBEDDED_CONFIG_FILES.has(name)) continue
+    if (!BINARY_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
       entries[rel] = await fs.readFile(path.join(dir, entry.name), "utf-8")
     }
   }
@@ -86,13 +94,15 @@ async function bundleToolFile(filePath: string): Promise<string> {
       "@opencode-ai/plugin": path.join(monorepoRoot, "packages/plugin/src/index.ts"),
     },
   })
-  return result.outputFiles[0].text
+  const output = result.outputFiles?.[0]
+  if (!output) throw new Error(`Failed to bundle tool file ${filePath}`)
+  return output.text
 }
 
 async function buildEmbeddedConfig(): Promise<string> {
-  if (!OPENCODE_EMBED_CONFIG_DIR) return "export default undefined;"
+  if (!FLASHCODE_EMBEDDED_CONFIG_DIR) return "export default undefined;"
 
-  const configDir = path.resolve(OPENCODE_EMBED_CONFIG_DIR)
+  const configDir = path.resolve(FLASHCODE_EMBEDDED_CONFIG_DIR)
   const files = await readDirRecursive(configDir)
 
   // Bundle .ts tool wrappers into .js for Node.js compatibility
@@ -103,8 +113,8 @@ async function buildEmbeddedConfig(): Promise<string> {
     delete files[key]
   }
 
-  // Process agent enable/disable in opencode.json
-  for (const key of ["opencode.json", "opencode.jsonc"]) {
+  // Process agent enable/disable in flashcode.json
+  for (const key of ["flashcode.json", "flashcode.jsonc"]) {
     if (!files[key]) continue
     const config = JSON.parse(files[key])
     if (OPENCODE_DISABLE_AGENT_BUILD) {
@@ -116,15 +126,15 @@ async function buildEmbeddedConfig(): Promise<string> {
     files[key] = JSON.stringify(config)
   }
 
-  // If no opencode.json exists but agent toggles are set, create one
-  if (!files["opencode.json"] && !files["opencode.jsonc"] && (OPENCODE_DISABLE_AGENT_BUILD || OPENCODE_DISABLE_AGENT_PLAN)) {
+  // If no flashcode.json exists but agent toggles are set, create one
+  if (!files["flashcode.json"] && !files["flashcode.jsonc"] && (OPENCODE_DISABLE_AGENT_BUILD || OPENCODE_DISABLE_AGENT_PLAN)) {
     const config: Record<string, unknown> = { agent: {} }
     if (OPENCODE_DISABLE_AGENT_BUILD) (config.agent as Record<string, unknown>).build = { disable: true }
     if (OPENCODE_DISABLE_AGENT_PLAN) (config.agent as Record<string, unknown>).plan = { disable: true }
-    files["opencode.json"] = JSON.stringify(config)
+    files["flashcode.json"] = JSON.stringify(config)
   }
 
-  return `export default ${JSON.stringify(files)};`
+  return `export default ${JSON.stringify(createEmbeddedConfigBundle(files))};`
 }
 
 const EMBEDDED_CONFIG_VIRTUAL_ID = "virtual:embedded-config"

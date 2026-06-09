@@ -1,6 +1,6 @@
 ﻿import { getLlama, LlamaChatSession } from "node-llama-cpp";
 const llama = await getLlama("lastBuild", { logLevel: "warn" });
-const model = await llama.loadModel({ modelPath: "D:\\.opencode\\models\\Jackrong\\Qwopus3.6-27B-v2-MTP-GGUF\\Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf", gpuLayers: 99 });
+const model = await llama.loadModel({ modelPath: "D:\\.flashcode\\models\\Jackrong\\Qwopus3.6-27B-v2-MTP-GGUF\\Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf", gpuLayers: 99 });
 const ctx = await model.createContext({ contextSize: 4096 });
 const session = new LlamaChatSession({ contextSequence: ctx.getSequence() });
 

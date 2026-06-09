@@ -5,6 +5,7 @@ import { Storage } from "@/storage/storage"
 import * as Session from "./session"
 import { MessageV2 } from "./message-v2"
 import { SessionID, MessageID } from "./schema"
+import { filterSummaryDiffs, sanitizeMessageSummary } from "./summary-diff-filter"
 
 function unquoteGitPath(input: string) {
   if (!input.startsWith('"')) return input
@@ -105,7 +106,7 @@ export const layer = Layer.effect(
       const all = yield* sessions.messages({ sessionID: input.sessionID })
       if (!all.length) return
 
-      const diffs = yield* computeDiff({ messages: all })
+      const diffs = filterSummaryDiffs(yield* computeDiff({ messages: all }))
       yield* sessions.setSummary({
         sessionID: input.sessionID,
         summary: {
@@ -123,7 +124,15 @@ export const layer = Layer.effect(
       const target = messages.find((m) => m.info.id === input.messageID)
       if (!target || target.info.role !== "user") return
       const msgDiffs = yield* computeDiff({ messages })
-      target.info.summary = { ...target.info.summary, diffs: msgDiffs }
+      const nextSummary = sanitizeMessageSummary(
+        target.info.summary
+          ? { ...target.info.summary, diffs: msgDiffs }
+          : {
+              diffs: msgDiffs,
+            },
+      )
+      if (nextSummary) target.info.summary = nextSummary
+      else delete target.info.summary
       yield* sessions.updateMessage(target.info)
     })
 
@@ -137,9 +146,10 @@ export const layer = Layer.effect(
         if (file === item.file) return item
         return { ...item, file }
       })
-      const changed = next.some((item, i) => item.file !== diffs[i]?.file)
-      if (changed) yield* storage.write(["session_diff", input.sessionID], next).pipe(Effect.ignore)
-      return next
+      const filtered = filterSummaryDiffs(next)
+      const changed = next.some((item, i) => item.file !== diffs[i]?.file) || filtered.length !== next.length
+      if (changed) yield* storage.write(["session_diff", input.sessionID], filtered).pipe(Effect.ignore)
+      return filtered
     })
 
     return Service.of({ summarize, diff, computeDiff })

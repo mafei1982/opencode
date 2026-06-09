@@ -101,9 +101,9 @@ export const dict = {
   "dialog.provider.group.popular": "Populære",
   "dialog.provider.group.other": "Andre",
   "dialog.provider.tag.recommended": "Anbefalt",
-  "dialog.provider.opencode.note": "Utvalgte modeller inkludert Claude, GPT, Gemini og mer",
-  "dialog.provider.opencode.tagline": "Pålitelige, optimaliserte modeller",
-  "dialog.provider.opencodeGo.tagline": "Rimelig abonnement for alle",
+  "dialog.provider.flashcode.note": "Utvalgte modeller inkludert Claude, GPT, Gemini og mer",
+  "dialog.provider.flashcode.tagline": "Pålitelige, optimaliserte modeller",
+  "dialog.provider.flashcodeGo.tagline": "Rimelig abonnement for alle",
   "dialog.provider.anthropic.note": "Direkte tilgang til Claude-modeller, inkludert Pro og Max",
   "dialog.provider.copilot.note": "AI-modeller for kodeassistanse via GitHub Copilot",
   "dialog.provider.openai.note": "GPT-modeller for raske, dyktige generelle AI-oppgaver",
@@ -118,7 +118,7 @@ export const dict = {
   "dialog.model.manage.description": "Tilpass hvilke modeller som vises i modellvelgeren.",
   "dialog.model.manage.provider.toggle": "Veksle alle {{provider}}-modeller",
 
-  "dialog.model.unpaid.freeModels.title": "Gratis modeller levert av OpenCode",
+  "dialog.model.unpaid.freeModels.title": "Gratis modeller levert av FlashCode",
   "dialog.model.unpaid.addMore.title": "Legg til flere modeller fra populære leverandører",
 
   "dialog.provider.viewAll": "Vis flere leverandører",
@@ -135,13 +135,13 @@ export const dict = {
   "provider.connect.apiKey.label": "{{provider}} API-nøkkel",
   "provider.connect.apiKey.placeholder": "API-nøkkel",
   "provider.connect.apiKey.required": "API-nøkkel er påkrevd",
-  "provider.connect.opencodeZen.line1":
+  "provider.connect.flashcodeZen.line1":
     "OpenCode Zen gir deg tilgang til et utvalg av pålitelige optimaliserte modeller for kodeagenter.",
-  "provider.connect.opencodeZen.line2":
+  "provider.connect.flashcodeZen.line2":
     "Med én enkelt API-nøkkel får du tilgang til modeller som Claude, GPT, Gemini, GLM og flere.",
-  "provider.connect.opencodeZen.visit.prefix": "Besøk ",
-  "provider.connect.opencodeZen.visit.link": "opencode.ai/zen",
-  "provider.connect.opencodeZen.visit.suffix": " for å hente API-nøkkelen din.",
+  "provider.connect.flashcodeZen.visit.prefix": "Besøk ",
+  "provider.connect.flashcodeZen.visit.link": "opencode.ai/zen",
+  "provider.connect.flashcodeZen.visit.suffix": " for å hente API-nøkkelen din.",
   "provider.connect.oauth.code.visit.prefix": "Besøk ",
   "provider.connect.oauth.code.visit.link": "denne lenken",
   "provider.connect.oauth.code.visit.suffix":
@@ -297,7 +297,7 @@ export const dict = {
   "dialog.mcp.empty": "Ingen MCP-er konfigurert",
 
   "dialog.lsp.empty": "LSP-er automatisk oppdaget fra filtyper",
-  "dialog.plugins.empty": "Plugins konfigurert i opencode.json",
+  "dialog.plugins.empty": "Plugins konfigurert i flashcode.json",
 
   "mcp.status.connected": "tilkoblet",
   "mcp.status.failed": "mislyktes",
@@ -310,7 +310,7 @@ export const dict = {
   "dialog.directory.empty": "Ingen mapper funnet",
 
   "dialog.server.title": "Servere",
-  "dialog.server.description": "Bytt hvilken OpenCode-server denne appen kobler til.",
+  "dialog.server.description": "Bytt hvilken FlashCode-server denne appen kobler til.",
   "dialog.server.search.placeholder": "Søk etter servere",
   "dialog.server.empty": "Ingen servere ennå",
   "dialog.server.add.title": "Legg til en server",
@@ -442,7 +442,7 @@ export const dict = {
   "toast.session.listFailed.title": "Kunne ikke laste sesjoner for {{project}}",
 
   "toast.update.title": "Oppdatering tilgjengelig",
-  "toast.update.description": "En ny versjon av OpenCode ({{version}}) er nå tilgjengelig for installasjon.",
+  "toast.update.description": "En ny versjon av FlashCode ({{version}}) er nå tilgjengelig for installasjon.",
   "toast.update.action.installRestart": "Installer og start på nytt",
   "toast.update.action.notYet": "Ikke nå",
 
@@ -455,7 +455,7 @@ export const dict = {
   "error.page.action.checking": "Sjekker...",
   "error.page.action.checkUpdates": "Se etter oppdateringer",
   "error.page.action.updateTo": "Oppdater til {{version}}",
-  "error.page.report.prefix": "Vennligst rapporter denne feilen til OpenCode-teamet",
+  "error.page.report.prefix": "Vennligst rapporter denne feilen til FlashCode-teamet",
   "error.page.report.discord": "på Discord",
   "error.page.version": "Versjon: {{version}}",
 
@@ -473,8 +473,8 @@ export const dict = {
   "error.chain.responseBody": "Responsinnhold:\n{{body}}",
   "error.chain.didYouMean": "Mente du: {{suggestions}}",
   "error.chain.modelNotFound": "Modell ikke funnet: {{provider}}/{{model}}",
-  "error.chain.checkConfig": "Sjekk leverandør-/modellnavnene i konfigurasjonen din (opencode.json)",
-  "error.chain.mcpFailed": 'MCP-server "{{name}}" mislyktes. Merk at OpenCode ikke støtter MCP-autentisering ennå.',
+  "error.chain.checkConfig": "Sjekk leverandør-/modellnavnene i konfigurasjonen din (flashcode.json)",
+  "error.chain.mcpFailed": 'MCP-server "{{name}}" mislyktes. Merk at FlashCode ikke støtter MCP-autentisering ennå.',
   "error.chain.providerAuthFailed": "Leverandørautentisering mislyktes ({{provider}}): {{message}}",
   "error.chain.providerInitFailed":
     'Kunne ikke initialisere leverandør "{{provider}}". Sjekk legitimasjon og konfigurasjon.',
@@ -610,13 +610,13 @@ export const dict = {
   "sidebar.workspaces.enable": "Aktiver arbeidsområder",
   "sidebar.workspaces.disable": "Deaktiver arbeidsområder",
   "sidebar.gettingStarted.title": "Kom i gang",
-  "sidebar.gettingStarted.line1": "OpenCode inkluderer gratis modeller så du kan starte umiddelbart.",
+  "sidebar.gettingStarted.line1": "FlashCode inkluderer gratis modeller så du kan starte umiddelbart.",
   "sidebar.gettingStarted.line2": "Koble til en leverandør for å bruke modeller, inkl. Claude, GPT, Gemini osv.",
   "sidebar.project.recentSessions": "Nylige sesjoner",
   "sidebar.project.viewAllSessions": "Vis alle sesjoner",
   "sidebar.project.clearNotifications": "Fjern varsler",
 
-  "app.name.desktop": "OpenCode Desktop",
+  "app.name.desktop": "FlashCode Desktop",
 
   "settings.section.desktop": "Skrivebord",
   "settings.section.server": "Server",
@@ -624,7 +624,7 @@ export const dict = {
   "settings.tab.shortcuts": "Snarveier",
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL-integrasjon",
-  "settings.desktop.wsl.description": "Kjør OpenCode-serveren i WSL på Windows.",
+  "settings.desktop.wsl.description": "Kjør FlashCode-serveren i WSL på Windows.",
 
   "settings.general.section.appearance": "Utseende",
   "settings.general.section.notifications": "Systemvarsler",

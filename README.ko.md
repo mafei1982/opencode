@@ -89,7 +89,7 @@ scoop bucket add extras; scoop install extras/opencode-desktop
 1. `$OPENCODE_INSTALL_DIR` - 사용자 지정 설치 디렉터리
 2. `$XDG_BIN_DIR` - XDG Base Directory Specification 준수 경로
 3. `$HOME/bin` - 표준 사용자 바이너리 디렉터리 (존재하거나 생성 가능할 경우)
-4. `$HOME/.opencode/bin` - 기본 폴백
+4. `$HOME/.flashcode/bin` - 기본 폴백
 
 ```bash
 # 예시

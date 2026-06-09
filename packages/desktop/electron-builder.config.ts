@@ -8,6 +8,8 @@ import type { Configuration } from "electron-builder"
 const execFileAsync = promisify(execFile)
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const signScript = path.join(rootDir, "script", "sign-windows.ps1")
+const deepLinkSchemes = ["flashcode", "ni-cic-code", "opencode"]
+const bundledToolsDir = process.env.FLASHCODE_TOOLS_DIR ?? process.env.NI_CIC_TOOLS_DIR
 
 async function signWindows(configuration: { path: string }) {
   if (process.platform !== "win32") return
@@ -27,7 +29,7 @@ const channel = (() => {
 })()
 
 const getBase = (): Configuration => ({
-  artifactName: "ni-cic-code-desktop-${os}-${arch}.${ext}",
+  artifactName: "flashcode-desktop-${os}-${arch}.${ext}",
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -48,8 +50,13 @@ const getBase = (): Configuration => ({
       to: "llm.env",
       filter: ["llm.env"],
     },
-    ...(process.env.NI_CIC_TOOLS_DIR
-      ? [{ from: process.env.NI_CIC_TOOLS_DIR, to: "tools/" }]
+    {
+      from: "../../vendor/llama-cpp-server",
+      to: "llama-cpp-server",
+      filter: ["**/*"],
+    },
+    ...(bundledToolsDir
+      ? [{ from: bundledToolsDir, to: "tools/" }]
       : []),
   ],
   mac: {
@@ -66,8 +73,8 @@ const getBase = (): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "NI CIC Code",
-    schemes: ["ni-cic-code"],
+    name: "FlashCode",
+    schemes: deepLinkSchemes,
   },
   win: {
     icon: `resources/icons/icon.ico`,
@@ -97,29 +104,29 @@ function getConfig() {
     case "dev": {
       return {
         ...base,
-        appId: "com.ni.cic-code.desktop.dev",
-        productName: "NI CIC Code Dev",
-        rpm: { packageName: "ni-cic-code-dev" },
+        appId: "com.flashcode.desktop.dev",
+        productName: "FlashCode Dev",
+        rpm: { packageName: "flashcode-dev" },
       }
     }
     case "beta": {
       return {
         ...base,
-        appId: "com.ni.cic-code.desktop.beta",
-        productName: "NI CIC Code Beta",
-        protocols: { name: "NI CIC Code Beta", schemes: ["ni-cic-code"] },
+        appId: "com.flashcode.desktop.beta",
+        productName: "FlashCode Beta",
+        protocols: { name: "FlashCode Beta", schemes: deepLinkSchemes },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
-        rpm: { packageName: "ni-cic-code-beta" },
+        rpm: { packageName: "flashcode-beta" },
       }
     }
     case "prod": {
       return {
         ...base,
-        appId: "com.ni.cic-code.desktop",
-        productName: "NI CIC Code",
-        protocols: { name: "NI CIC Code", schemes: ["ni-cic-code"] },
+        appId: "com.flashcode.desktop",
+        productName: "FlashCode",
+        protocols: { name: "FlashCode", schemes: deepLinkSchemes },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
-        rpm: { packageName: "ni-cic-code" },
+        rpm: { packageName: "flashcode" },
       }
     }
   }

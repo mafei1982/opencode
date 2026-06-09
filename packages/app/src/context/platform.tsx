@@ -19,6 +19,12 @@ export type Platform = {
   /** App version */
   version?: string
 
+  /** Whether the settings UI should be available */
+  showSettings?: boolean
+
+  /** Whether users can add or manage external providers */
+  providerManagement?: boolean
+
   /** Open a URL in the default browser */
   openLink(url: string): void
 

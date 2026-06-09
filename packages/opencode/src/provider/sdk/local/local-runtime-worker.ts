@@ -250,6 +250,9 @@ async function runInference(
         topP: state.init.samplingParams.topP,
         topK: state.init.samplingParams.topK,
         minP: state.init.samplingParams.minP,
+        repeatPenalty: state.init.samplingParams.repeatPenalty === undefined
+          ? undefined
+          : { penalty: state.init.samplingParams.repeatPenalty },
         onResponseChunk(chunk: LlamaChatResponseChunk) {
           idleTimeout?.refresh()
           if (!onEvent) return

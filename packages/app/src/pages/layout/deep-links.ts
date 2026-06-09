@@ -1,7 +1,8 @@
 export const deepLinkEvent = "opencode:deep-link"
+const deepLinkSchemes = ["flashcode://", "ni-cic-code://", "opencode://"]
 
 const parseUrl = (input: string) => {
-  if (!input.startsWith("opencode://")) return
+  if (!deepLinkSchemes.some((scheme) => input.startsWith(scheme))) return
   if (typeof URL.canParse === "function" && !URL.canParse(input)) return
   try {
     return new URL(input)

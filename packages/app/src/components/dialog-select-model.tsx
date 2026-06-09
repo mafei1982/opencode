@@ -12,6 +12,7 @@ import { List } from "@opencode-ai/ui/list"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { ModelTooltip } from "./model-tooltip"
 import { useLanguage } from "@/context/language"
+import { usePlatform } from "@/context/platform"
 
 const isFree = (provider: string, cost: { input: number } | undefined) =>
   provider === "opencode" && (!cost || cost.input === 0)
@@ -104,6 +105,8 @@ export function ModelSelectorPopover(props: {
     dismiss: null,
   })
   const dialog = useDialog()
+  const platform = usePlatform()
+  const manageProviders = () => platform.providerManagement !== false
 
   const close = (dismiss: Dismiss) => {
     setStore("dismiss", dismiss)
@@ -118,6 +121,7 @@ export function ModelSelectorPopover(props: {
   }
 
   const handleConnectProvider = () => {
+    if (!manageProviders()) return
     close("provider")
     void import("./dialog-select-provider").then((x) => {
       dialog.show(() => <x.DialogSelectProvider />)
@@ -166,28 +170,30 @@ export function ModelSelectorPopover(props: {
             onSelect={() => close("select")}
             class="p-1"
             action={
-              <div class="flex items-center gap-1">
-                <Tooltip placement="top" value={language.t("command.provider.connect")}>
-                  <IconButton
-                    icon="plus-small"
-                    variant="ghost"
-                    iconSize="normal"
-                    class="size-6"
-                    aria-label={language.t("command.provider.connect")}
-                    onClick={handleConnectProvider}
-                  />
-                </Tooltip>
-                <Tooltip placement="top" value={language.t("dialog.model.manage")}>
-                  <IconButton
-                    icon="sliders"
-                    variant="ghost"
-                    iconSize="normal"
-                    class="size-6"
-                    aria-label={language.t("dialog.model.manage")}
-                    onClick={handleManage}
-                  />
-                </Tooltip>
-              </div>
+              manageProviders() ? (
+                <div class="flex items-center gap-1">
+                  <Tooltip placement="top" value={language.t("command.provider.connect")}>
+                    <IconButton
+                      icon="plus-small"
+                      variant="ghost"
+                      iconSize="normal"
+                      class="size-6"
+                      aria-label={language.t("command.provider.connect")}
+                      onClick={handleConnectProvider}
+                    />
+                  </Tooltip>
+                  <Tooltip placement="top" value={language.t("dialog.model.manage")}>
+                    <IconButton
+                      icon="sliders"
+                      variant="ghost"
+                      iconSize="normal"
+                      class="size-6"
+                      aria-label={language.t("dialog.model.manage")}
+                      onClick={handleManage}
+                    />
+                  </Tooltip>
+                </div>
+              ) : undefined
             }
           />
         </Kobalte.Content>
@@ -199,8 +205,11 @@ export function ModelSelectorPopover(props: {
 export const DialogSelectModel: Component<{ provider?: string; model?: ModelState }> = (props) => {
   const dialog = useDialog()
   const language = useLanguage()
+  const platform = usePlatform()
+  const manageProviders = () => platform.providerManagement !== false
 
   const provider = () => {
+    if (!manageProviders()) return
     void import("./dialog-select-provider").then((x) => {
       dialog.show(() => <x.DialogSelectProvider />)
     })
@@ -216,9 +225,11 @@ export const DialogSelectModel: Component<{ provider?: string; model?: ModelStat
     <Dialog
       title={language.t("dialog.model.select.title")}
       action={
-        <Button class="h-7 -my-1 text-14-medium" icon="plus-small" tabIndex={-1} onClick={provider}>
-          {language.t("command.provider.connect")}
-        </Button>
+        manageProviders() ? (
+          <Button class="h-7 -my-1 text-14-medium" icon="plus-small" tabIndex={-1} onClick={provider}>
+            {language.t("command.provider.connect")}
+          </Button>
+        ) : undefined
       }
     >
       <ModelList provider={props.provider} model={props.model} onSelect={() => dialog.close()} />

@@ -93,9 +93,9 @@ function writeProviderAuthPlugin(dir: string) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
 
-    yield* fs.makeDirectory(path.join(dir, ".opencode", "plugin"), { recursive: true })
+    yield* fs.makeDirectory(path.join(dir, ".flashcode", "plugin"), { recursive: true })
     yield* fs.writeFileString(
-      path.join(dir, ".opencode", "plugin", "provider-oauth-parity.ts"),
+      path.join(dir, ".flashcode", "plugin", "provider-oauth-parity.ts"),
       [
         "export default {",
         '  id: "test.provider-oauth-parity",',
@@ -129,9 +129,9 @@ function writeFunctionOptionsPlugin(dir: string) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
 
-    yield* fs.makeDirectory(path.join(dir, ".opencode", "plugin"), { recursive: true })
+    yield* fs.makeDirectory(path.join(dir, ".flashcode", "plugin"), { recursive: true })
     yield* fs.writeFileString(
-      path.join(dir, ".opencode", "plugin", "provider-function-options.ts"),
+      path.join(dir, ".flashcode", "plugin", "provider-function-options.ts"),
       [
         "export default {",
         '  id: "test.provider-function-options",',
@@ -162,9 +162,9 @@ function writeProviderModelsMutationPlugin(dir: string) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
 
-    yield* fs.makeDirectory(path.join(dir, ".opencode", "plugin"), { recursive: true })
+    yield* fs.makeDirectory(path.join(dir, ".flashcode", "plugin"), { recursive: true })
     yield* fs.writeFileString(
-      path.join(dir, ".opencode", "plugin", "provider-models-mutation.ts"),
+      path.join(dir, ".flashcode", "plugin", "provider-models-mutation.ts"),
       [
         "export default {",
         '  id: "test.provider-models-mutation",',
@@ -198,7 +198,7 @@ function withProviderProject<A, E, R>(self: (dir: string) => Effect.Effect<A, E,
     const dir = yield* fs.makeTempDirectoryScoped({ prefix: "opencode-test-" })
 
     yield* fs.writeFileString(
-      path.join(dir, "opencode.json"),
+      path.join(dir, "flashcode.json"),
       JSON.stringify({ $schema: "https://opencode.ai/config.json", formatter: false, lsp: false }),
     )
     yield* writeProviderAuthPlugin(dir)
@@ -260,7 +260,7 @@ describe("provider HttpApi", () => {
       const previous = process.env.OPENCODE_AUTH_CONTENT
 
       yield* fs.writeFileString(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({ $schema: "https://opencode.ai/config.json", formatter: false, lsp: false }),
       )
       yield* writeFunctionOptionsPlugin(dir)
@@ -300,7 +300,7 @@ describe("provider HttpApi", () => {
       const dir = yield* fs.makeTempDirectoryScoped({ prefix: "opencode-test-" })
 
       yield* fs.writeFileString(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({ $schema: "https://opencode.ai/config.json", formatter: false, lsp: false }),
       )
       yield* writeProviderModelsMutationPlugin(dir)

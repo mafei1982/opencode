@@ -42,7 +42,7 @@ const testServerLayer = Layer.mergeAll(
 )
 const it = testEffect(testServerLayer)
 
-const originalWorkspacesFlag = Flag.OPENCODE_EXPERIMENTAL_WORKSPACES
+const originalWorkspacesFlag = Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES
 const originalEnv = {
   OPENCODE_AUTH_CONTENT: process.env.OPENCODE_AUTH_CONTENT,
   OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
@@ -91,14 +91,14 @@ function restoreEnv() {
 
 beforeEach(() => {
   Database.close()
-  Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = true
+  Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = true
   restoreEnv()
 })
 
 afterEach(async () => {
   mock.restore()
   await disposeAllInstances()
-  Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = originalWorkspacesFlag
+  Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = originalWorkspacesFlag
   restoreEnv()
   await resetDatabase()
 })
@@ -479,8 +479,8 @@ describe("workspace CRUD", () => {
       expect(JSON.parse(recorded.calls.create[0].env.OPENCODE_AUTH_CONTENT ?? "{}")).toEqual({
         test: { type: "api", key: "secret" },
       })
-      expect(recorded.calls.create[0].env.OPENCODE_WORKSPACE_ID).toBe(workspaceID)
-      expect(recorded.calls.create[0].env.OPENCODE_EXPERIMENTAL_WORKSPACES).toBe("true")
+      expect(recorded.calls.create[0].env.FLASHCODE_WORKSPACE_ID).toBe(workspaceID)
+      expect(recorded.calls.create[0].env.FLASHCODE_EXPERIMENTAL_WORKSPACES).toBe("true")
       expect(recorded.calls.create[0].env.OTEL_EXPORTER_OTLP_HEADERS).toBe("authorization=otel")
       expect(recorded.calls.create[0].env.OTEL_EXPORTER_OTLP_ENDPOINT).toBe("https://otel.test")
       expect(recorded.calls.create[0].env.OTEL_RESOURCE_ATTRIBUTES).toBe("service.name=opencode-test")
@@ -979,7 +979,7 @@ describe("workspace CRUD", () => {
 describe("workspace sync state", () => {
   test("startWorkspaceSyncing is disabled by the experimental workspace flag", async () => {
     await withInstance(async (dir) => {
-      Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = false
+      Flag.FLASHCODE_EXPERIMENTAL_WORKSPACES = false
       const type = unique("flag-disabled")
       const info = workspaceInfo(Instance.project.id, type)
       const session = await AppRuntime.runPromise(SessionNs.Service.use((svc) => svc.create({})))

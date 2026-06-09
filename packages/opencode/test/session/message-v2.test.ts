@@ -109,6 +109,45 @@ function basePart(messageID: string, id: string) {
 }
 
 describe("session.message-v2.toModelMessage", () => {
+  test("strips user summary metadata from prompt-side message copies", () => {
+    const input: MessageV2.WithParts[] = [
+      {
+        info: {
+          ...userInfo("m-user-summary"),
+          summary: {
+            title: "Edit",
+            diffs: [
+              {
+                file: "src/example.ts",
+                additions: 1,
+                deletions: 1,
+                patch: "@@ -1 +1 @@\n-old\n+new",
+              },
+            ],
+          },
+        },
+        parts: [
+          {
+            ...basePart("m-user-summary", "p1-summary"),
+            type: "text",
+            text: "hello",
+          },
+        ] as MessageV2.Part[],
+      },
+    ]
+
+    const stripped = MessageV2.stripPromptMetadata(input)
+
+    expect(stripped[0]?.info.role).toBe("user")
+    if (stripped[0]?.info.role === "user") expect(stripped[0].info.summary).toBeUndefined()
+    expect(input[0]?.info.role).toBe("user")
+    if (input[0]?.info.role === "user") {
+      expect(input[0].info.summary?.diffs).toHaveLength(1)
+      expect(input[0].info.summary?.title).toBe("Edit")
+    }
+    expect(stripped[0]?.parts).toBe(input[0]?.parts)
+  })
+
   test("filters out messages with no parts", async () => {
     const input: MessageV2.WithParts[] = [
       {

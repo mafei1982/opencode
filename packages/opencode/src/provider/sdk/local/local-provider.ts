@@ -44,6 +44,7 @@ export interface LocalProviderOptions {
   topP?: number
   topK?: number
   minP?: number
+  repeatPenalty?: number
   inferenceTimeout?: number
   inferenceRetries?: number
 }
@@ -98,6 +99,8 @@ export async function loadLocalModel(
       topP: options?.topP ?? (process.env.LLM_TOP_P ? parseFloat(process.env.LLM_TOP_P) : 0.95),
       topK: options?.topK ?? (process.env.LLM_TOP_K ? parseInt(process.env.LLM_TOP_K, 10) : 20),
       minP: options?.minP ?? (process.env.LLM_MIN_P ? parseFloat(process.env.LLM_MIN_P) : 0),
+      repeatPenalty: options?.repeatPenalty ??
+        (process.env.LLM_REPEAT_PENALTY ? parseFloat(process.env.LLM_REPEAT_PENALTY) : undefined),
     }
 
     log.info("resolved sampling params", samplingParams)
@@ -212,4 +215,9 @@ export function createLocal(options?: LocalProviderOptions): LocalProviderSDK {
  */
 export function isLocalProviderEnabled(): boolean {
   return (process.env.LLM_PROVIDER ?? "").toLowerCase() === "local"
+}
+
+export function resetLocalProviderForTests() {
+  singletonInstance = undefined
+  singletonLoadPromise = undefined
 }

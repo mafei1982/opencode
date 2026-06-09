@@ -89,7 +89,7 @@ scoop bucket add extras; scoop install extras/opencode-desktop
 1. `$OPENCODE_INSTALL_DIR` - 自定义安装目录
 2. `$XDG_BIN_DIR` - 符合 XDG 基础目录规范的路径
 3. `$HOME/bin` - 如果存在或可创建的用户二进制目录
-4. `$HOME/.opencode/bin` - 默认备用路径
+4. `$HOME/.flashcode/bin` - 默认备用路径
 
 ```bash
 # 示例

@@ -25,6 +25,7 @@ import { Effect, Schema, Types } from "effect"
 import { NonNegativeInt } from "@opencode-ai/core/schema"
 import { namedSchemaError } from "@/util/named-schema-error"
 import * as EffectLogger from "@opencode-ai/core/effect/logger"
+import { sanitizeMessageSummary } from "./summary-diff-filter"
 
 /** Error shape thrown by Bun's fetch() when gzip/br decompression fails mid-stream */
 interface FetchDecompressionError extends Error {
@@ -584,12 +585,26 @@ export const cursor = {
   },
 }
 
-const info = (row: typeof MessageTable.$inferSelect) =>
-  ({
+const info = (row: typeof MessageTable.$inferSelect) => {
+  const result = {
     ...row.data,
     id: row.id,
     sessionID: row.session_id,
-  }) as Info
+  } as Info
+
+  if (result.role !== "user") return result
+  const summary = sanitizeMessageSummary(result.summary)
+  if (summary) {
+    if (summary === result.summary) return result
+    return {
+      ...result,
+      summary,
+    } as Info
+  }
+
+  const { summary: _summary, ...rest } = result
+  return rest as Info
+}
 
 const part = (row: typeof PartTable.$inferSelect) =>
   ({
@@ -1006,6 +1021,23 @@ export function get(input: { sessionID: SessionID; messageID: MessageID }): With
     info: info(row),
     parts: parts(input.messageID),
   }
+}
+
+export function stripPromptUserSummary(info: User) {
+  if (!info.summary) return info
+  const { summary: _summary, ...rest } = info
+  return rest as User
+}
+
+export function stripPromptMetadata(msgs: Iterable<WithParts>) {
+  return Array.from(msgs, (msg) => {
+    if (msg.info.role !== "user") return msg
+    if (!msg.info.summary) return msg
+    return {
+      info: stripPromptUserSummary(msg.info),
+      parts: msg.parts,
+    } satisfies WithParts
+  })
 }
 
 export function filterCompacted(msgs: Iterable<WithParts>) {

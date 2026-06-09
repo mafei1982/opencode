@@ -13,6 +13,8 @@ export const DialogSettings: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
 
+  if (platform.showSettings === false) return null
+
   return (
     <Dialog size="x-large" transition>
       <Tabs orientation="vertical" variant="settings" defaultValue="general" class="h-full settings-dialog">

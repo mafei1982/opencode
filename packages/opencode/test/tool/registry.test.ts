@@ -31,9 +31,9 @@ import { ProviderID, ModelID } from "@/provider/schema"
 import { ToolJsonSchema } from "@/tool/json-schema"
 
 const node = CrossSpawnSpawner.defaultLayer
-const originalExperimentalScout = Flag.OPENCODE_EXPERIMENTAL_SCOUT
+const originalExperimentalScout = Flag.FLASHCODE_EXPERIMENTAL_SCOUT
 const configLayer = TestConfig.layer({
-  directories: () => InstanceState.directory.pipe(Effect.map((dir) => [path.join(dir, ".opencode")])),
+  directories: () => InstanceState.directory.pipe(Effect.map((dir) => [path.join(dir, ".flashcode")])),
 })
 
 const registryLayer = ToolRegistry.layer.pipe(
@@ -61,14 +61,14 @@ const registryLayer = ToolRegistry.layer.pipe(
 const it = testEffect(Layer.mergeAll(registryLayer, node, Agent.defaultLayer))
 
 afterEach(async () => {
-  Flag.OPENCODE_EXPERIMENTAL_SCOUT = originalExperimentalScout
+  Flag.FLASHCODE_EXPERIMENTAL_SCOUT = originalExperimentalScout
   await disposeAllInstances()
 })
 
 describe("tool.registry", () => {
   it.instance("hides repo research tools unless experimental", () =>
     Effect.gen(function* () {
-      Flag.OPENCODE_EXPERIMENTAL_SCOUT = false
+      Flag.FLASHCODE_EXPERIMENTAL_SCOUT = false
       const registry = yield* ToolRegistry.Service
       const ids = yield* registry.ids()
 
@@ -79,7 +79,7 @@ describe("tool.registry", () => {
 
   it.instance("shows repo research tools when experimental scout is enabled", () =>
     Effect.gen(function* () {
-      Flag.OPENCODE_EXPERIMENTAL_SCOUT = true
+      Flag.FLASHCODE_EXPERIMENTAL_SCOUT = true
       const registry = yield* ToolRegistry.Service
       const ids = yield* registry.ids()
 
@@ -88,10 +88,10 @@ describe("tool.registry", () => {
     }),
   )
 
-  it.instance("loads tools from .opencode/tool (singular)", () =>
+  it.instance("loads tools from .flashcode/tool (singular)", () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
-      const opencode = path.join(test.directory, ".opencode")
+      const opencode = path.join(test.directory, ".flashcode")
       const tool = path.join(opencode, "tool")
       yield* Effect.promise(() => fs.mkdir(tool, { recursive: true }))
       yield* Effect.promise(() =>
@@ -115,10 +115,10 @@ describe("tool.registry", () => {
     }),
   )
 
-  it.instance("loads tools from .opencode/tools (plural)", () =>
+  it.instance("loads tools from .flashcode/tools (plural)", () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
-      const opencode = path.join(test.directory, ".opencode")
+      const opencode = path.join(test.directory, ".flashcode")
       const tools = path.join(opencode, "tools")
       yield* Effect.promise(() => fs.mkdir(tools, { recursive: true }))
       yield* Effect.promise(() =>
@@ -145,7 +145,7 @@ describe("tool.registry", () => {
   it.instance("loads Zod-schema custom tools with JSON Schema and validation", () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
-      const customTools = path.join(test.directory, ".opencode", "tools")
+      const customTools = path.join(test.directory, ".flashcode", "tools")
       const pluginTool = pathToFileURL(path.resolve(import.meta.dir, "../../../plugin/src/tool.ts")).href
       yield* Effect.promise(() => fs.mkdir(customTools, { recursive: true }))
       yield* Effect.promise(() =>
@@ -196,7 +196,7 @@ describe("tool.registry", () => {
   it.instance("loads legacy JSON-schema-shaped custom tools with wire schema", () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
-      const tools = path.join(test.directory, ".opencode", "tools")
+      const tools = path.join(test.directory, ".flashcode", "tools")
       yield* Effect.promise(() => fs.mkdir(tools, { recursive: true }))
       yield* Effect.promise(() =>
         Bun.write(
@@ -228,7 +228,7 @@ describe("tool.registry", () => {
   it.instance("loads tools with external dependencies without crashing", () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
-      const opencode = path.join(test.directory, ".opencode")
+      const opencode = path.join(test.directory, ".flashcode")
       const tools = path.join(opencode, "tools")
       yield* Effect.promise(() => fs.mkdir(tools, { recursive: true }))
       yield* Effect.promise(() =>

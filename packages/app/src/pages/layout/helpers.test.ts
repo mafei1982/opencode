@@ -33,6 +33,11 @@ describe("layout deep links", () => {
     expect(parseDeepLink("opencode://open-project?directory=/tmp/demo")).toBe("/tmp/demo")
   })
 
+  test("parses flashcode and legacy ni-cic-code deep links", () => {
+    expect(parseDeepLink("flashcode://open-project?directory=/tmp/flashcode")).toBe("/tmp/flashcode")
+    expect(parseDeepLink("ni-cic-code://open-project?directory=/tmp/legacy")).toBe("/tmp/legacy")
+  })
+
   test("ignores non-project deep links", () => {
     expect(parseDeepLink("opencode://other?directory=/tmp/demo")).toBeUndefined()
     expect(parseDeepLink("https://example.com")).toBeUndefined()
@@ -73,6 +78,9 @@ describe("layout deep links", () => {
     expect(parseNewSessionDeepLink("opencode://new-session?directory=/tmp/demo&prompt=hello%20world")).toEqual({
       directory: "/tmp/demo",
       prompt: "hello world",
+    })
+    expect(parseNewSessionDeepLink("flashcode://new-session?directory=/tmp/flashcode")).toEqual({
+      directory: "/tmp/flashcode",
     })
   })
 

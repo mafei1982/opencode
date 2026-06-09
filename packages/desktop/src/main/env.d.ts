@@ -29,9 +29,12 @@ declare module "virtual:opencode-server" {
   export const bootstrap: typeof import("../../../opencode/dist/types/src/node").bootstrap
   export const loadLocalModel: typeof import("../../../opencode/dist/types/src/node").loadLocalModel
   export const isLocalProviderEnabled: typeof import("../../../opencode/dist/types/src/node").isLocalProviderEnabled
+  export const loadLocalTcpServer: typeof import("../../../opencode/dist/types/src/node").loadLocalTcpServer
+  export const stopLocalTcpServer: typeof import("../../../opencode/dist/types/src/node").stopLocalTcpServer
+  export const isLocalTcpProviderEnabled: typeof import("../../../opencode/dist/types/src/node").isLocalTcpProviderEnabled
 }
 
 declare module "virtual:embedded-config" {
-  const config: Record<string, string> | undefined
+  const config: import("../../../core/src/embedded-config").EmbeddedConfigBundle | undefined
   export default config
 }

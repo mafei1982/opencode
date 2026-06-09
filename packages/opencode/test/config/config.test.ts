@@ -93,12 +93,12 @@ afterEach(async () => {
   await clear(true)
 })
 
-async function writeManagedSettings(settings: object, filename = "opencode.json") {
+async function writeManagedSettings(settings: object, filename = "flashcode.json") {
   await fs.mkdir(managedConfigDir, { recursive: true })
   await Filesystem.write(path.join(managedConfigDir, filename), JSON.stringify(settings))
 }
 
-async function writeConfig(dir: string, config: object, name = "opencode.json") {
+async function writeConfig(dir: string, config: object, name = "flashcode.json") {
   await Filesystem.write(path.join(dir, name), JSON.stringify(config))
 }
 
@@ -155,7 +155,7 @@ test("creates global jsonc config with schema when no global configs exist", asy
       },
     })
 
-    const content = await Filesystem.readText(path.join(tmp.path, "opencode.jsonc"))
+    const content = await Filesystem.readText(path.join(tmp.path, "flashcode.jsonc"))
     expect(content).toContain('"$schema": "https://opencode.ai/config.json"')
   } finally {
     ;(Global.Path as { config: string }).config = prev
@@ -163,13 +163,13 @@ test("creates global jsonc config with schema when no global configs exist", asy
   }
 })
 
-test("does not create global config when OPENCODE_CONFIG_DIR is set", async () => {
+test("does not create global config when FLASHCODE_CONFIG_DIR is set", async () => {
   await using tmp = await tmpdir()
   await using custom = await tmpdir()
   const prevConfig = Global.Path.config
-  const prevEnv = process.env.OPENCODE_CONFIG_DIR
+  const prevEnv = process.env.FLASHCODE_CONFIG_DIR
   ;(Global.Path as { config: string }).config = tmp.path
-  process.env.OPENCODE_CONFIG_DIR = custom.path
+  process.env.FLASHCODE_CONFIG_DIR = custom.path
   await clear(true)
 
   try {
@@ -180,11 +180,11 @@ test("does not create global config when OPENCODE_CONFIG_DIR is set", async () =
       },
     })
 
-    expect(await Filesystem.exists(path.join(tmp.path, "opencode.jsonc"))).toBe(false)
+    expect(await Filesystem.exists(path.join(tmp.path, "flashcode.jsonc"))).toBe(false)
   } finally {
     ;(Global.Path as { config: string }).config = prevConfig
-    if (prevEnv === undefined) delete process.env.OPENCODE_CONFIG_DIR
-    else process.env.OPENCODE_CONFIG_DIR = prevEnv
+    if (prevEnv === undefined) delete process.env.FLASHCODE_CONFIG_DIR
+    else process.env.FLASHCODE_CONFIG_DIR = prevEnv
     await clear(true)
   }
 })
@@ -268,7 +268,7 @@ test("updates global config and omits empty shell key in json", async () => {
   try {
     await saveGlobal({ shell: "" })
 
-    const writtenConfig = await Filesystem.readJson<{ shell?: string }>(path.join(tmp.path, "opencode.json"))
+    const writtenConfig = await Filesystem.readJson<{ shell?: string }>(path.join(tmp.path, "flashcode.json"))
     expect("shell" in writtenConfig).toBe(false)
   } finally {
     ;(Global.Path as { config: string }).config = prev
@@ -280,7 +280,7 @@ test("updates global config and omits empty shell key in jsonc", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.jsonc"),
+        path.join(dir, "flashcode.jsonc"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           shell: "bash",
@@ -297,7 +297,7 @@ test("updates global config and omits empty shell key in jsonc", async () => {
   try {
     await saveGlobal({ shell: "" })
 
-    const file = path.join(tmp.path, "opencode.jsonc")
+    const file = path.join(tmp.path, "flashcode.jsonc")
     const writtenConfig = await Filesystem.readText(file)
     const parsed = ConfigParse.schema(Config.Info, ConfigParse.jsonc(writtenConfig, file), file)
     expect(writtenConfig).not.toContain('"shell"')
@@ -388,7 +388,7 @@ test("loads JSONC config file", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.jsonc"),
+        path.join(dir, "flashcode.jsonc"),
         `{
         // This is a comment
         "$schema": "https://opencode.ai/config.json",
@@ -418,7 +418,7 @@ test("jsonc overrides json in the same directory", async () => {
           model: "base",
           username: "base",
         },
-        "opencode.jsonc",
+        "flashcode.jsonc",
       )
       await writeConfig(dir, {
         $schema: "https://opencode.ai/config.json",
@@ -474,7 +474,7 @@ test("preserves env variables when adding $schema to config", async () => {
       init: async (dir) => {
         // Config without $schema - should trigger auto-add
         await Filesystem.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "flashcode.json"),
           JSON.stringify({
             username: "{env:PRESERVE_VAR}",
           }),
@@ -488,7 +488,7 @@ test("preserves env variables when adding $schema to config", async () => {
         expect(config.username).toBe("secret_value")
 
         // Read the file to verify the env variable was preserved
-        const content = await Filesystem.readText(path.join(tmp.path, "opencode.json"))
+        const content = await Filesystem.readText(path.join(tmp.path, "flashcode.json"))
         expect(content).toContain("{env:PRESERVE_VAR}")
         expect(content).not.toContain("secret_value")
         expect(content).toContain("$schema")
@@ -627,7 +627,7 @@ test("validates config schema and throws on invalid fields", async () => {
 test("throws error for invalid JSON", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      await Filesystem.write(path.join(dir, "opencode.json"), "{ invalid json }")
+      await Filesystem.write(path.join(dir, "flashcode.json"), "{ invalid json }")
     },
   })
   await provideTestInstance({
@@ -731,7 +731,7 @@ test("migrates autoshare to share field", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           autoshare: true,
@@ -753,7 +753,7 @@ test("migrates mode field to agent field", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           mode: {
@@ -781,10 +781,10 @@ test("migrates mode field to agent field", async () => {
   })
 })
 
-test("loads config from .opencode directory", async () => {
+test("loads config from .flashcode directory", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, ".opencode")
+      const opencodeDir = path.join(dir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
       const agentDir = path.join(opencodeDir, "agent")
       await fs.mkdir(agentDir, { recursive: true })
@@ -816,7 +816,7 @@ Test agent prompt`,
 test("agent markdown permission config preserves user key order", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const agentDir = path.join(dir, ".opencode", "agent")
+      const agentDir = path.join(dir, ".flashcode", "agent")
       await fs.mkdir(agentDir, { recursive: true })
 
       await Filesystem.write(
@@ -840,10 +840,10 @@ Ordered permissions`,
   })
 })
 
-test("loads agents from .opencode/agents (plural)", async () => {
+test("loads agents from .flashcode/agents (plural)", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, ".opencode")
+      const opencodeDir = path.join(dir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       const agentsDir = path.join(opencodeDir, "agents")
@@ -891,10 +891,10 @@ Nested agent prompt`,
   })
 })
 
-test("loads commands from .opencode/command (singular)", async () => {
+test("loads commands from .flashcode/command (singular)", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, ".opencode")
+      const opencodeDir = path.join(dir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       const commandDir = path.join(opencodeDir, "command")
@@ -936,10 +936,10 @@ Nested command template`,
   })
 })
 
-test("loads commands from .opencode/commands (plural)", async () => {
+test("loads commands from .flashcode/commands (plural)", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, ".opencode")
+      const opencodeDir = path.join(dir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       const commandsDir = path.join(opencodeDir, "commands")
@@ -1006,7 +1006,7 @@ test("gets config directories", async () => {
   })
 })
 
-test("does not try to install dependencies in read-only OPENCODE_CONFIG_DIR", async () => {
+test("does not try to install dependencies in read-only FLASHCODE_CONFIG_DIR", async () => {
   if (process.platform === "win32") return
 
   await using tmp = await tmpdir<string>({
@@ -1023,8 +1023,8 @@ test("does not try to install dependencies in read-only OPENCODE_CONFIG_DIR", as
     },
   })
 
-  const prev = process.env.OPENCODE_CONFIG_DIR
-  process.env.OPENCODE_CONFIG_DIR = tmp.extra
+  const prev = process.env.FLASHCODE_CONFIG_DIR
+  process.env.FLASHCODE_CONFIG_DIR = tmp.extra
 
   try {
     await WithInstance.provide({
@@ -1034,12 +1034,12 @@ test("does not try to install dependencies in read-only OPENCODE_CONFIG_DIR", as
       },
     })
   } finally {
-    if (prev === undefined) delete process.env.OPENCODE_CONFIG_DIR
-    else process.env.OPENCODE_CONFIG_DIR = prev
+    if (prev === undefined) delete process.env.FLASHCODE_CONFIG_DIR
+    else process.env.FLASHCODE_CONFIG_DIR = prev
   }
 })
 
-test("installs dependencies in writable OPENCODE_CONFIG_DIR", async () => {
+test("installs dependencies in writable FLASHCODE_CONFIG_DIR", async () => {
   await using tmp = await tmpdir<string>({
     init: async (dir) => {
       const cfg = path.join(dir, "configdir")
@@ -1048,8 +1048,8 @@ test("installs dependencies in writable OPENCODE_CONFIG_DIR", async () => {
     },
   })
 
-  const prev = process.env.OPENCODE_CONFIG_DIR
-  process.env.OPENCODE_CONFIG_DIR = tmp.extra
+  const prev = process.env.FLASHCODE_CONFIG_DIR
+  process.env.FLASHCODE_CONFIG_DIR = tmp.extra
 
   const testLayer = Config.layer.pipe(
     Layer.provide(testFlock),
@@ -1078,8 +1078,8 @@ test("installs dependencies in writable OPENCODE_CONFIG_DIR", async () => {
     expect(await Filesystem.exists(path.join(tmp.extra, ".gitignore"))).toBe(true)
     expect(await Filesystem.readText(path.join(tmp.extra, ".gitignore"))).toContain("package-lock.json")
   } finally {
-    if (prev === undefined) delete process.env.OPENCODE_CONFIG_DIR
-    else process.env.OPENCODE_CONFIG_DIR = prev
+    if (prev === undefined) delete process.env.FLASHCODE_CONFIG_DIR
+    else process.env.FLASHCODE_CONFIG_DIR = prev
   }
 })
 
@@ -1115,7 +1115,7 @@ test("resolves scoped npm plugins in config", async () => {
       await Filesystem.write(path.join(pluginDir, "index.js"), "export default {}\n")
 
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({ $schema: "https://opencode.ai/config.json", plugin: ["@scope/plugin"] }, null, 2),
       )
     },
@@ -1134,23 +1134,23 @@ test("resolves scoped npm plugins in config", async () => {
 test("merges plugin arrays from global and local configs", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      // Create a nested project structure with local .opencode config
+      // Create a nested project structure with local .flashcode config
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, ".opencode")
+      const opencodeDir = path.join(projectDir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       // Global config with plugins
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           plugin: ["global-plugin-1", "global-plugin-2"],
         }),
       )
 
-      // Local .opencode config with different plugins
+      // Local .flashcode config with different plugins
       await Filesystem.write(
-        path.join(opencodeDir, "opencode.json"),
+        path.join(opencodeDir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           plugin: ["local-plugin-1"],
@@ -1180,7 +1180,7 @@ test("merges plugin arrays from global and local configs", async () => {
 test("does not error when only custom agent is a subagent", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, ".opencode")
+      const opencodeDir = path.join(dir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
       const agentDir = path.join(opencodeDir, "agent")
       await fs.mkdir(agentDir, { recursive: true })
@@ -1213,11 +1213,11 @@ test("merges instructions arrays from global and local configs", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, ".opencode")
+      const opencodeDir = path.join(projectDir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           instructions: ["global-instructions.md", "shared-rules.md"],
@@ -1225,7 +1225,7 @@ test("merges instructions arrays from global and local configs", async () => {
       )
 
       await Filesystem.write(
-        path.join(opencodeDir, "opencode.json"),
+        path.join(opencodeDir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           instructions: ["local-instructions.md"],
@@ -1252,11 +1252,11 @@ test("deduplicates duplicate instructions from global and local configs", async 
   await using tmp = await tmpdir({
     init: async (dir) => {
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, ".opencode")
+      const opencodeDir = path.join(projectDir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           instructions: ["duplicate.md", "global-only.md"],
@@ -1264,7 +1264,7 @@ test("deduplicates duplicate instructions from global and local configs", async 
       )
 
       await Filesystem.write(
-        path.join(opencodeDir, "opencode.json"),
+        path.join(opencodeDir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           instructions: ["duplicate.md", "local-only.md"],
@@ -1293,23 +1293,23 @@ test("deduplicates duplicate instructions from global and local configs", async 
 test("deduplicates duplicate plugins from global and local configs", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      // Create a nested project structure with local .opencode config
+      // Create a nested project structure with local .flashcode config
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, ".opencode")
+      const opencodeDir = path.join(projectDir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       // Global config with plugins
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           plugin: ["duplicate-plugin", "global-plugin-1"],
         }),
       )
 
-      // Local .opencode config with some overlapping plugins
+      // Local .flashcode config with some overlapping plugins
       await Filesystem.write(
-        path.join(opencodeDir, "opencode.json"),
+        path.join(opencodeDir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           plugin: ["duplicate-plugin", "local-plugin-1"],
@@ -1346,11 +1346,11 @@ test("keeps plugin origins aligned with merged plugin list", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       const project = path.join(dir, "project")
-      const local = path.join(project, ".opencode")
+      const local = path.join(project, ".flashcode")
       await fs.mkdir(local, { recursive: true })
 
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           plugin: [["shared-plugin@1.0.0", { source: "global" }], "global-only@1.0.0"],
@@ -1358,7 +1358,7 @@ test("keeps plugin origins aligned with merged plugin list", async () => {
       )
 
       await Filesystem.write(
-        path.join(local, "opencode.json"),
+        path.join(local, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           plugin: [["shared-plugin@2.0.0", { source: "local" }], "local-only@1.0.0"],
@@ -1393,7 +1393,7 @@ test("migrates legacy tools config to permissions - allow", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           agent: {
@@ -1424,7 +1424,7 @@ test("migrates legacy tools config to permissions - deny", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           agent: {
@@ -1455,7 +1455,7 @@ test("migrates legacy write tool to edit permission", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           agent: {
@@ -1562,7 +1562,7 @@ test("migrates legacy edit tool to edit permission", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           agent: {
@@ -1591,7 +1591,7 @@ test("migrates legacy patch tool to edit permission", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           agent: {
@@ -1620,7 +1620,7 @@ test("migrates mixed legacy tools config", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           agent: {
@@ -1655,7 +1655,7 @@ test("merges legacy tools with existing permission config", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           agent: {
@@ -1690,7 +1690,7 @@ test("permission config preserves user key order", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           permission: {
@@ -1759,7 +1759,7 @@ test("project config can override MCP server enabled status", async () => {
     init: async (dir) => {
       // Simulates a base config (like from remote .well-known) with disabled MCP
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           mcp: {
@@ -1778,7 +1778,7 @@ test("project config can override MCP server enabled status", async () => {
       )
       // Project config enables just jira
       await Filesystem.write(
-        path.join(dir, "opencode.jsonc"),
+        path.join(dir, "flashcode.jsonc"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           mcp: {
@@ -1817,7 +1817,7 @@ test("MCP config deep merges preserving base config properties", async () => {
     init: async (dir) => {
       // Base config with full MCP definition
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           mcp: {
@@ -1834,7 +1834,7 @@ test("MCP config deep merges preserving base config properties", async () => {
       )
       // Override just enables it, should preserve other properties
       await Filesystem.write(
-        path.join(dir, "opencode.jsonc"),
+        path.join(dir, "flashcode.jsonc"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           mcp: {
@@ -1864,12 +1864,12 @@ test("MCP config deep merges preserving base config properties", async () => {
   })
 })
 
-test("local .opencode config can override MCP from project config", async () => {
+test("local .flashcode config can override MCP from project config", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       // Project config with disabled MCP
       await Filesystem.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           mcp: {
@@ -1881,11 +1881,11 @@ test("local .opencode config can override MCP from project config", async () => 
           },
         }),
       )
-      // Local .opencode directory config enables it
-      const opencodeDir = path.join(dir, ".opencode")
+      // Local .flashcode directory config enables it
+      const opencodeDir = path.join(dir, ".flashcode")
       await fs.mkdir(opencodeDir, { recursive: true })
       await Filesystem.write(
-        path.join(opencodeDir, "opencode.json"),
+        path.join(opencodeDir, "flashcode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           mcp: {
@@ -2034,7 +2034,7 @@ test("wellknown remote_config supports templated env vars in headers", async () 
         new Response(
           JSON.stringify({
             remote_config: {
-              url: "https://config.example.com/opencode.json",
+              url: "https://config.example.com/flashcode.json",
               headers: {
                 Authorization: "Bearer {env:TEST_TOKEN}",
               },
@@ -2083,7 +2083,7 @@ test("wellknown remote_config supports templated env vars in headers", async () 
           Effect.gen(function* () {
             const config = yield* svc.get()
             expect(wellknownFetchedUrl).toBe("https://example.com/.well-known/opencode")
-            expect(remoteFetchedUrl).toBe("https://config.example.com/opencode.json")
+            expect(remoteFetchedUrl).toBe("https://config.example.com/flashcode.json")
             expect(remoteHeaders).toEqual({ Authorization: "Bearer test-token" })
             expect(config.mcp?.confluence?.enabled).toBe(true)
           }),
@@ -2100,7 +2100,7 @@ test("wellknown remote_config supports templated env vars in headers", async () 
 describe("resolvePluginSpec", () => {
   test("keeps package specs unchanged", async () => {
     await using tmp = await tmpdir()
-    const file = path.join(tmp.path, "opencode.json")
+    const file = path.join(tmp.path, "flashcode.json")
     expect(await ConfigPlugin.resolvePluginSpec("oh-my-opencode@2.4.3", file)).toBe("oh-my-opencode@2.4.3")
     expect(await ConfigPlugin.resolvePluginSpec("@scope/pkg", file)).toBe("@scope/pkg")
   })
@@ -2116,7 +2116,7 @@ describe("resolvePluginSpec", () => {
       },
     })
 
-    const file = path.join(tmp.path, "opencode.json")
+    const file = path.join(tmp.path, "flashcode.json")
     const hit = await ConfigPlugin.resolvePluginSpec(".\\plugin", file)
     expect(ConfigPlugin.pluginSpecifier(hit)).toBe(pathToFileURL(path.join(tmp.path, "plugin", "index.ts")).href)
   })
@@ -2128,7 +2128,7 @@ describe("resolvePluginSpec", () => {
       },
     })
 
-    const file = path.join(tmp.path, "opencode.json")
+    const file = path.join(tmp.path, "flashcode.json")
     const hit = await ConfigPlugin.resolvePluginSpec("./plugin.ts", file)
     expect(ConfigPlugin.pluginSpecifier(hit)).toBe(pathToFileURL(path.join(tmp.path, "plugin.ts")).href)
   })
@@ -2147,7 +2147,7 @@ describe("resolvePluginSpec", () => {
       },
     })
 
-    const file = path.join(tmp.path, "opencode.json")
+    const file = path.join(tmp.path, "flashcode.json")
     const hit = await ConfigPlugin.resolvePluginSpec("./plugin", file)
     expect(ConfigPlugin.pluginSpecifier(hit)).toBe(pathToFileURL(path.join(tmp.path, "plugin")).href)
   })
@@ -2161,7 +2161,7 @@ describe("resolvePluginSpec", () => {
       },
     })
 
-    const file = path.join(tmp.path, "opencode.json")
+    const file = path.join(tmp.path, "flashcode.json")
     const hit = await ConfigPlugin.resolvePluginSpec("./plugin", file)
     expect(ConfigPlugin.pluginSpecifier(hit)).toBe(pathToFileURL(path.join(tmp.path, "plugin", "index.ts")).href)
   })
@@ -2190,7 +2190,7 @@ describe("deduplicatePluginOrigins", () => {
   })
 
   test("keeps path plugins separate from package plugins", () => {
-    const plugins = ["oh-my-opencode@2.4.3", "file:///project/.opencode/plugin/oh-my-opencode.js"]
+    const plugins = ["oh-my-opencode@2.4.3", "file:///project/.flashcode/plugin/oh-my-opencode.js"]
 
     const result = dedupe(plugins)
 
@@ -2198,11 +2198,11 @@ describe("deduplicatePluginOrigins", () => {
   })
 
   test("deduplicates direct path plugins by exact spec", () => {
-    const plugins = ["file:///project/.opencode/plugin/demo.ts", "file:///project/.opencode/plugin/demo.ts"]
+    const plugins = ["file:///project/.flashcode/plugin/demo.ts", "file:///project/.flashcode/plugin/demo.ts"]
 
     const result = dedupe(plugins)
 
-    expect(result).toEqual(["file:///project/.opencode/plugin/demo.ts"])
+    expect(result).toEqual(["file:///project/.flashcode/plugin/demo.ts"])
   })
 
   test("preserves order of remaining plugins", () => {
@@ -2217,12 +2217,12 @@ describe("deduplicatePluginOrigins", () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
         const projectDir = path.join(dir, "project")
-        const opencodeDir = path.join(projectDir, ".opencode")
+        const opencodeDir = path.join(projectDir, ".flashcode")
         const pluginDir = path.join(opencodeDir, "plugin")
         await fs.mkdir(pluginDir, { recursive: true })
 
         await Filesystem.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "flashcode.json"),
           JSON.stringify({
             $schema: "https://opencode.ai/config.json",
             plugin: ["my-plugin@1.0.0"],
@@ -2246,17 +2246,17 @@ describe("deduplicatePluginOrigins", () => {
   })
 })
 
-describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
+describe("FLASHCODE_DISABLE_PROJECT_CONFIG", () => {
   test("skips project config files when flag is set", async () => {
-    const originalEnv = process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
-    process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
+    const originalEnv = process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
+    process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = "true"
 
     try {
       await using tmp = await tmpdir({
         init: async (dir) => {
           // Create a project config that would normally be loaded
           await Filesystem.write(
-            path.join(dir, "opencode.json"),
+            path.join(dir, "flashcode.json"),
             JSON.stringify({
               $schema: "https://opencode.ai/config.json",
               model: "project/model",
@@ -2276,22 +2276,22 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
       })
     } finally {
       if (originalEnv === undefined) {
-        delete process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
+        delete process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
       } else {
-        process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = originalEnv
+        process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = originalEnv
       }
     }
   })
 
-  test("skips project .opencode/ directories when flag is set", async () => {
-    const originalEnv = process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
-    process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
+  test("skips project .flashcode/ directories when flag is set", async () => {
+    const originalEnv = process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
+    process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = "true"
 
     try {
       await using tmp = await tmpdir({
         init: async (dir) => {
-          // Create a .opencode directory with a command
-          const opencodeDir = path.join(dir, ".opencode", "command")
+          // Create a .flashcode directory with a command
+          const opencodeDir = path.join(dir, ".flashcode", "command")
           await fs.mkdir(opencodeDir, { recursive: true })
           await Filesystem.write(path.join(opencodeDir, "test-cmd.md"), "# Test Command\nThis is a test command.")
         },
@@ -2300,23 +2300,23 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
         directory: tmp.path,
         fn: async () => {
           const directories = await listDirs()
-          // Project .opencode should NOT be in directories list
+          // Project .flashcode should NOT be in directories list
           const hasProjectOpencode = directories.some((d) => d.startsWith(tmp.path))
           expect(hasProjectOpencode).toBe(false)
         },
       })
     } finally {
       if (originalEnv === undefined) {
-        delete process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
+        delete process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
       } else {
-        process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = originalEnv
+        process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = originalEnv
       }
     }
   })
 
   test("still loads global config when flag is set", async () => {
-    const originalEnv = process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
-    process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
+    const originalEnv = process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
+    process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = "true"
 
     try {
       await using tmp = await tmpdir()
@@ -2331,27 +2331,27 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
       })
     } finally {
       if (originalEnv === undefined) {
-        delete process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
+        delete process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
       } else {
-        process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = originalEnv
+        process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = originalEnv
       }
     }
   })
 
   test("skips relative instructions with warning when flag is set but no config dir", async () => {
-    const originalDisable = process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
-    const originalConfigDir = process.env["OPENCODE_CONFIG_DIR"]
+    const originalDisable = process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
+    const originalConfigDir = process.env["FLASHCODE_CONFIG_DIR"]
 
     try {
       // Ensure no config dir is set
-      delete process.env["OPENCODE_CONFIG_DIR"]
-      process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
+      delete process.env["FLASHCODE_CONFIG_DIR"]
+      process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = "true"
 
       await using tmp = await tmpdir({
         init: async (dir) => {
           // Create a config with relative instruction path
           await Filesystem.write(
-            path.join(dir, "opencode.json"),
+            path.join(dir, "flashcode.json"),
             JSON.stringify({
               $schema: "https://opencode.ai/config.json",
               instructions: ["./CUSTOM.md"],
@@ -2376,28 +2376,28 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
       })
     } finally {
       if (originalDisable === undefined) {
-        delete process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
+        delete process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
       } else {
-        process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = originalDisable
+        process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = originalDisable
       }
       if (originalConfigDir === undefined) {
-        delete process.env["OPENCODE_CONFIG_DIR"]
+        delete process.env["FLASHCODE_CONFIG_DIR"]
       } else {
-        process.env["OPENCODE_CONFIG_DIR"] = originalConfigDir
+        process.env["FLASHCODE_CONFIG_DIR"] = originalConfigDir
       }
     }
   })
 
-  test("OPENCODE_CONFIG_DIR still works when flag is set", async () => {
-    const originalDisable = process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
-    const originalConfigDir = process.env["OPENCODE_CONFIG_DIR"]
+  test("FLASHCODE_CONFIG_DIR still works when flag is set", async () => {
+    const originalDisable = process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
+    const originalConfigDir = process.env["FLASHCODE_CONFIG_DIR"]
 
     try {
       await using configDirTmp = await tmpdir({
         init: async (dir) => {
           // Create config in the custom config dir
           await Filesystem.write(
-            path.join(dir, "opencode.json"),
+            path.join(dir, "flashcode.json"),
             JSON.stringify({
               $schema: "https://opencode.ai/config.json",
               model: "configdir/model",
@@ -2410,7 +2410,7 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
         init: async (dir) => {
           // Create config in project (should be ignored)
           await Filesystem.write(
-            path.join(dir, "opencode.json"),
+            path.join(dir, "flashcode.json"),
             JSON.stringify({
               $schema: "https://opencode.ai/config.json",
               model: "project/model",
@@ -2419,38 +2419,38 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
         },
       })
 
-      process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
-      process.env["OPENCODE_CONFIG_DIR"] = configDirTmp.path
+      process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = "true"
+      process.env["FLASHCODE_CONFIG_DIR"] = configDirTmp.path
 
       await WithInstance.provide({
         directory: projectTmp.path,
         fn: async () => {
           const config = await load()
-          // Should load from OPENCODE_CONFIG_DIR, not project
+          // Should load from FLASHCODE_CONFIG_DIR, not project
           expect(config.model).toBe("configdir/model")
         },
       })
     } finally {
       if (originalDisable === undefined) {
-        delete process.env["OPENCODE_DISABLE_PROJECT_CONFIG"]
+        delete process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"]
       } else {
-        process.env["OPENCODE_DISABLE_PROJECT_CONFIG"] = originalDisable
+        process.env["FLASHCODE_DISABLE_PROJECT_CONFIG"] = originalDisable
       }
       if (originalConfigDir === undefined) {
-        delete process.env["OPENCODE_CONFIG_DIR"]
+        delete process.env["FLASHCODE_CONFIG_DIR"]
       } else {
-        process.env["OPENCODE_CONFIG_DIR"] = originalConfigDir
+        process.env["FLASHCODE_CONFIG_DIR"] = originalConfigDir
       }
     }
   })
 })
 
-describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
-  test("substitutes {env:} tokens in OPENCODE_CONFIG_CONTENT", async () => {
-    const originalEnv = process.env["OPENCODE_CONFIG_CONTENT"]
+describe("FLASHCODE_CONFIG_CONTENT token substitution", () => {
+  test("substitutes {env:} tokens in FLASHCODE_CONFIG_CONTENT", async () => {
+    const originalEnv = process.env["FLASHCODE_CONFIG_CONTENT"]
     const originalTestVar = process.env["TEST_CONFIG_VAR"]
     process.env["TEST_CONFIG_VAR"] = "test_api_key_12345"
-    process.env["OPENCODE_CONFIG_CONTENT"] = JSON.stringify({
+    process.env["FLASHCODE_CONFIG_CONTENT"] = JSON.stringify({
       $schema: "https://opencode.ai/config.json",
       username: "{env:TEST_CONFIG_VAR}",
     })
@@ -2466,9 +2466,9 @@ describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
       })
     } finally {
       if (originalEnv !== undefined) {
-        process.env["OPENCODE_CONFIG_CONTENT"] = originalEnv
+        process.env["FLASHCODE_CONFIG_CONTENT"] = originalEnv
       } else {
-        delete process.env["OPENCODE_CONFIG_CONTENT"]
+        delete process.env["FLASHCODE_CONFIG_CONTENT"]
       }
       if (originalTestVar !== undefined) {
         process.env["TEST_CONFIG_VAR"] = originalTestVar
@@ -2478,14 +2478,14 @@ describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
     }
   })
 
-  test("substitutes {file:} tokens in OPENCODE_CONFIG_CONTENT", async () => {
-    const originalEnv = process.env["OPENCODE_CONFIG_CONTENT"]
+  test("substitutes {file:} tokens in FLASHCODE_CONFIG_CONTENT", async () => {
+    const originalEnv = process.env["FLASHCODE_CONFIG_CONTENT"]
 
     try {
       await using tmp = await tmpdir({
         init: async (dir) => {
           await Filesystem.write(path.join(dir, "api_key.txt"), "secret_key_from_file")
-          process.env["OPENCODE_CONFIG_CONTENT"] = JSON.stringify({
+          process.env["FLASHCODE_CONFIG_CONTENT"] = JSON.stringify({
             $schema: "https://opencode.ai/config.json",
             username: "{file:./api_key.txt}",
           })
@@ -2500,9 +2500,9 @@ describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
       })
     } finally {
       if (originalEnv !== undefined) {
-        process.env["OPENCODE_CONFIG_CONTENT"] = originalEnv
+        process.env["FLASHCODE_CONFIG_CONTENT"] = originalEnv
       } else {
-        delete process.env["OPENCODE_CONFIG_CONTENT"]
+        delete process.env["FLASHCODE_CONFIG_CONTENT"]
       }
     }
   })
@@ -2517,8 +2517,8 @@ test("parseManagedPlist strips MDM metadata keys", async () => {
       await ConfigManaged.parseManagedPlist(
         JSON.stringify({
           PayloadDisplayName: "OpenCode Managed",
-          PayloadIdentifier: "ai.opencode.managed.test",
-          PayloadType: "ai.opencode.managed",
+          PayloadIdentifier: "ai.flashcode.managed.test",
+          PayloadType: "ai.flashcode.managed",
           PayloadUUID: "AAAA-BBBB-CCCC",
           PayloadVersion: 1,
           _manualProfile: true,

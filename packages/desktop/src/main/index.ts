@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { EventEmitter } from "node:events"
-import { existsSync, mkdirSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs"
 import * as http from "node:http"
 import { createServer } from "node:net"
 import { homedir, tmpdir } from "node:os"
@@ -16,6 +16,7 @@ import { checkAppExists, resolveAppPath, wslPath } from "./apps"
 import { CHANNEL, UPDATER_ENABLED } from "./constants"
 import { registerIpcHandlers, sendDeepLinks, sendLlmDownloadProgress, sendMenuCommand, sendSqliteMigrationProgress } from "./ipc"
 import { initLogging } from "./logging"
+import { getDesktopEnvConfig, loadBundledEnv } from "./llm-config"
 import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
 import {
@@ -39,16 +40,22 @@ import { checkUpdate, checkForUpdates, installUpdate, setupAutoUpdater } from ".
 import { Deferred, Effect, Fiber } from "effect"
 
 const APP_NAMES: Record<string, string> = {
-  dev: "NI CIC Code Dev",
-  beta: "NI CIC Code Beta",
-  prod: "NI CIC Code",
+  dev: "FlashCode Dev",
+  beta: "FlashCode Beta",
+  prod: "FlashCode",
 }
 const APP_IDS: Record<string, string> = {
+  dev: "com.flashcode.desktop.dev",
+  beta: "com.flashcode.desktop.beta",
+  prod: "com.flashcode.desktop",
+}
+const LEGACY_APP_IDS: Record<string, string> = {
   dev: "com.ni.cic-code.desktop.dev",
   beta: "com.ni.cic-code.desktop.beta",
   prod: "com.ni.cic-code.desktop",
 }
-const TEST_ONBOARDING = process.env.OPENCODE_TEST_ONBOARDING === "1"
+const DEEP_LINK_SCHEMES = ["flashcode", "ni-cic-code", "opencode"] as const
+const TEST_ONBOARDING = process.env.FLASHCODE_TEST_ONBOARDING === "1"
 
 let logger: ReturnType<typeof initLogging>
 let mainWindow: BrowserWindow | null = null
@@ -58,6 +65,23 @@ const initEmitter = new EventEmitter()
 let initStep: InitStep = { phase: "server_waiting" }
 
 const pendingDeepLinks: string[] = []
+
+function migrateLegacyUserDataPath(target: string, legacy: string) {
+  if (target === legacy) return target
+  if (existsSync(target)) return target
+  if (!existsSync(legacy)) return target
+
+  try {
+    renameSync(legacy, target)
+    return target
+  } catch {
+    return legacy
+  }
+}
+
+function isDeepLinkUrl(input: string) {
+  return DEEP_LINK_SCHEMES.some((scheme) => input.startsWith(`${scheme}://`))
+}
 
 function useEnvProxy() {
   try {
@@ -115,30 +139,34 @@ const main = Effect.gen(function* () {
     process.chdir(homedir())
   } catch {}
 
-  process.env.OPENCODE_DISABLE_EMBEDDED_WEB_UI = "true"
+  process.env.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = "true"
+  loadBundledEnv()
 
-  const appId = app.isPackaged ? APP_IDS[CHANNEL] : "ai.opencode.desktop.dev"
+  const appId = app.isPackaged ? APP_IDS[CHANNEL] : "ai.flashcode.desktop.dev"
   const onboardingTestRoot = ((): string | undefined => {
     if (!TEST_ONBOARDING) return
 
-    const root = join(tmpdir(), `opencode-onboarding-${randomUUID()}`)
+    const root = join(tmpdir(), `flashcode-onboarding-${randomUUID()}`)
     rmSync(root, { recursive: true, force: true })
     ;["data", "config", "cache", "state", "desktop", "session"].forEach((dir) =>
       mkdirSync(join(root, dir), { recursive: true }),
     )
-    process.env.OPENCODE_DB = ":memory:"
+    process.env.FLASHCODE_DB = ":memory:"
     process.env.XDG_DATA_HOME = join(root, "data")
     process.env.XDG_CONFIG_HOME = join(root, "config")
     process.env.XDG_CACHE_HOME = join(root, "cache")
     process.env.XDG_STATE_HOME = join(root, "state")
     return root
   })()
-  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "OpenCode Dev")
+  const userDataPath = onboardingTestRoot
+    ? join(onboardingTestRoot, "desktop")
+    : app.isPackaged
+      ? migrateLegacyUserDataPath(join(app.getPath("appData"), appId), join(app.getPath("appData"), LEGACY_APP_IDS[CHANNEL]))
+      : join(app.getPath("appData"), appId)
+
+  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "FlashCode Dev")
   app.setAppUserModelId(appId)
-  app.setPath(
-    "userData",
-    onboardingTestRoot ? join(onboardingTestRoot, "desktop") : join(app.getPath("appData"), appId),
-  )
+  app.setPath("userData", userDataPath)
   if (onboardingTestRoot) app.setPath("sessionData", join(onboardingTestRoot, "session"))
   logger = initLogging()
 
@@ -167,7 +195,7 @@ const main = Effect.gen(function* () {
   preferAppEnv(app.getPath("userData"))
 
   app.on("second-instance", (_event: Event, argv: string[]) => {
-    const urls = argv.filter((arg: string) => arg.startsWith("opencode://"))
+    const urls = argv.filter((arg: string) => isDeepLinkUrl(arg))
     if (urls.length) {
       logger.log("deep link received via second-instance", { urls })
       emitDeepLinks(urls)
@@ -219,7 +247,7 @@ const main = Effect.gen(function* () {
       },
       (e) => Effect.runPromise(e),
     ),
-    getWindowConfig: () => ({ updaterEnabled: UPDATER_ENABLED }),
+    getWindowConfig: () => ({ updaterEnabled: UPDATER_ENABLED, ...getDesktopEnvConfig() }),
     consumeInitialDeepLinks: () => pendingDeepLinks.splice(0),
     getDefaultServerUrl: () => getDefaultServerUrl(),
     setDefaultServerUrl: (url) => setDefaultServerUrl(url),
@@ -241,17 +269,21 @@ const main = Effect.gen(function* () {
   yield* Effect.promise(() => app.whenReady())
 
   if (!TEST_ONBOARDING) migrate()
-  app.setAsDefaultProtocolClient("opencode")
+  for (const scheme of DEEP_LINK_SCHEMES) {
+    app.setAsDefaultProtocolClient(scheme)
+  }
   registerRendererProtocol()
   setDockIcon()
   setupAutoUpdater()
 
   const needsMigration = ((): boolean => {
-    if (process.env.OPENCODE_DB === ":memory:") return false
+    if (process.env.FLASHCODE_DB === ":memory:") return false
 
     const xdg = process.env.XDG_DATA_HOME
     const base = xdg && xdg.length > 0 ? xdg : join(homedir(), ".local", "share")
-    return !existsSync(join(base, "opencode", "opencode.db"))
+    return ![join(base, "flashcode", "opencode.db"), join(base, "ni-cic-code", "opencode.db")].some((candidate) =>
+      existsSync(candidate),
+    )
   })()
   let overlay: BrowserWindow | null = null
 
@@ -371,6 +403,7 @@ const main = Effect.gen(function* () {
           app.exit(0)
         })
       },
+      showSettings: getDesktopEnvConfig().showSettings,
     })
   }
 

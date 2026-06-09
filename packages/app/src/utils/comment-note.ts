@@ -24,20 +24,23 @@ function selection(selection: unknown) {
 }
 
 export function createCommentMetadata(input: PromptComment) {
+  const metadata = {
+    path: input.path,
+    selection: input.selection,
+    comment: input.comment,
+    preview: input.preview,
+    origin: input.origin,
+  }
   return {
-    opencodeComment: {
-      path: input.path,
-      selection: input.selection,
-      comment: input.comment,
-      preview: input.preview,
-      origin: input.origin,
-    },
+    flashcodeComment: metadata,
+    opencodeComment: metadata,
   }
 }
 
 export function readCommentMetadata(value: unknown) {
   if (!value || typeof value !== "object") return
-  const meta = (value as { opencodeComment?: unknown }).opencodeComment
+  const meta = (value as { flashcodeComment?: unknown; opencodeComment?: unknown }).flashcodeComment
+    ?? (value as { flashcodeComment?: unknown; opencodeComment?: unknown }).flashcodeComment
   if (!meta || typeof meta !== "object") return
   const path = (meta as { path?: unknown }).path
   const comment = (meta as { comment?: unknown }).comment

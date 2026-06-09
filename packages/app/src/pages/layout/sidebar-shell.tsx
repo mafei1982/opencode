@@ -28,6 +28,8 @@ export const SidebarContent = (props: {
   settingsLabel: Accessor<string>
   settingsKeybind: Accessor<string | undefined>
   onOpenSettings: () => void
+  showSettings?: boolean
+  showHelp?: boolean
   helpLabel: Accessor<string>
   onOpenHelp: () => void
   renderPanel: () => JSX.Element
@@ -90,24 +92,28 @@ export const SidebarContent = (props: {
           </DragDropProvider>
         </div>
         <div class="shrink-0 w-full pt-3 pb-6 flex flex-col items-center gap-2">
-          <TooltipKeybind placement={placement()} title={props.settingsLabel()} keybind={props.settingsKeybind() ?? ""}>
-            <IconButton
-              icon="settings-gear"
-              variant="ghost"
-              size="large"
-              onClick={props.onOpenSettings}
-              aria-label={props.settingsLabel()}
-            />
-          </TooltipKeybind>
-          <Tooltip placement={placement()} value={props.helpLabel()}>
-            <IconButton
-              icon="help"
-              variant="ghost"
-              size="large"
-              onClick={props.onOpenHelp}
-              aria-label={props.helpLabel()}
-            />
-          </Tooltip>
+          <Show when={props.showSettings ?? true}>
+            <TooltipKeybind placement={placement()} title={props.settingsLabel()} keybind={props.settingsKeybind() ?? ""}>
+              <IconButton
+                icon="settings-gear"
+                variant="ghost"
+                size="large"
+                onClick={props.onOpenSettings}
+                aria-label={props.settingsLabel()}
+              />
+            </TooltipKeybind>
+          </Show>
+          <Show when={props.showHelp ?? true}>
+            <Tooltip placement={placement()} value={props.helpLabel()}>
+              <IconButton
+                icon="help"
+                variant="ghost"
+                size="large"
+                onClick={props.onOpenHelp}
+                aria-label={props.helpLabel()}
+              />
+            </Tooltip>
+          </Show>
         </div>
       </div>
 

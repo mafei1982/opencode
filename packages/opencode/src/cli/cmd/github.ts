@@ -360,7 +360,7 @@ export const GithubInstallCommand = effectCmd({
 
           async function getInstallation() {
             return await fetch(
-              `https://api.opencode.ai/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`,
+              `https://api.flashcode.ai/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`,
             )
               .then((res) => res.json())
               .then((data) => data.installation)
@@ -478,7 +478,7 @@ export const GithubRunCommand = effectCmd({
           ? (payload as IssueCommentEvent | IssuesEvent).issue.number
           : (payload as PullRequestEvent | PullRequestReviewCommentEvent).pull_request.number
       const runUrl = `/${owner}/${repo}/actions/runs/${runId}`
-      const shareBaseUrl = isMock ? "https://dev.opencode.ai" : "https://opencode.ai"
+      const shareBaseUrl = isMock ? "https://dev.flashcode.ai" : "https://opencode.ai"
 
       let appToken: string
       let octoRest: Octokit
@@ -739,7 +739,7 @@ export const GithubRunCommand = effectCmd({
 
       function normalizeOidcBaseUrl(): string {
         const value = process.env["OIDC_BASE_URL"]
-        if (!value) return "https://api.opencode.ai"
+        if (!value) return "https://api.flashcode.ai"
         return value.replace(/\/+$/, "")
       }
 
