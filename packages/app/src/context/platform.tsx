@@ -22,6 +22,9 @@ export type Platform = {
   /** Whether the settings UI should be available */
   showSettings?: boolean
 
+  /** Whether prompt model controls should be visible */
+  showModels?: boolean
+
   /** Whether users can add or manage external providers */
   providerManagement?: boolean
 

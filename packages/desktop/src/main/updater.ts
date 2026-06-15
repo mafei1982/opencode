@@ -3,13 +3,17 @@ import pkg from "electron-updater"
 import { UPDATER_ENABLED } from "./constants"
 import { initLogging } from "./logging"
 
-const logger = initLogging()
 const { autoUpdater } = pkg
 
 let downloadedUpdateVersion: string | undefined
 
+function getLogger() {
+  return initLogging()
+}
+
 export function setupAutoUpdater() {
   if (!UPDATER_ENABLED) return
+  const logger = getLogger()
   autoUpdater.logger = logger
   autoUpdater.channel = "latest"
   autoUpdater.allowPrerelease = false
@@ -26,6 +30,7 @@ export function setupAutoUpdater() {
 
 export async function checkUpdate() {
   if (!UPDATER_ENABLED) return { updateAvailable: false }
+  const logger = getLogger()
   if (downloadedUpdateVersion) {
     logger.log("returning cached downloaded update", {
       version: downloadedUpdateVersion,
@@ -67,11 +72,13 @@ export async function checkUpdate() {
 
 export async function installUpdate(killSidecar: () => Promise<void>) {
   if (!downloadedUpdateVersion) {
+    const logger = getLogger()
     logger.log("install update skipped", {
       reason: "no downloaded update ready",
     })
     return
   }
+  const logger = getLogger()
   logger.log("installing downloaded update", {
     version: downloadedUpdateVersion,
   })
@@ -81,6 +88,7 @@ export async function installUpdate(killSidecar: () => Promise<void>) {
 
 export async function checkForUpdates(alertOnFail: boolean, killSidecar: () => Promise<void>) {
   if (!UPDATER_ENABLED) return
+  const logger = getLogger()
   logger.log("checkForUpdates invoked", { alertOnFail })
   const result = await checkUpdate()
   if (!result.updateAvailable) {

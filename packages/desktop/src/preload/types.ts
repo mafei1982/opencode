@@ -29,6 +29,7 @@ export type WindowConfig = {
   updaterEnabled: boolean
   defaultTheme?: string
   showSettings: boolean
+  showModels: boolean
   providerManagement: boolean
 }
 

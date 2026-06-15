@@ -155,12 +155,24 @@ LLM_PROVIDER=local_tcp
 LLM_DISABLE_NON_LOCAL_PROVIDERS=true
 OPENCODE_DEFAULT_THEME=ni
 OPENCODE_SHOW_SETTINGS=false
+SHOW_MODELS=true
 LLM_MODEL_PATH=Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q4_K_M
 LLM_N_CTX=262144
 LLM_N_GPU_LAYERS=65
 LLM_MAX_THREADS=7
 LLM_BATCH_SIZE=512
 LLM_MAX_CONCURRENCY=1
+LLM_KV_UNIFIED=true
+LLM_CACHE_RAM=8192
+LLM_CTX_CHECKPOINTS=32
+LLM_CHECKPOINT_MIN_STEP=256
+LLM_SPEC_TYPE=draft-mtp
+LLM_SPEC_DRAFT_N_MAX=2
+LLM_SPEC_DRAFT_N_MIN=0
+LLM_SPEC_DRAFT_P_MIN=0.00
+LLM_N_GPU_LAYERS_DRAFT=all
+LLM_SPEC_DRAFT_TYPE_K=f16
+LLM_SPEC_DRAFT_TYPE_V=f16
 LLM_FLASH_ATTENTION=true
 LLM_USE_MMAP=true
 LLM_USE_MLOCK=true
@@ -182,8 +194,12 @@ Key behaviors controlled by those values:
 - `LLM_DISABLE_NON_LOCAL_PROVIDERS=true`: when the provider is `local` or `local_tcp`, non-local providers are disabled by default; set this to `false` to re-enable other providers.
 - `OPENCODE_DEFAULT_THEME=ni`: forces the desktop UI theme to `ni` while this key is present; remove or leave it unset to fall back to the user's saved theme.
 - `OPENCODE_SHOW_SETTINGS=false`: hides the settings button and settings entry points by default; set it to `true` to show them again.
+- `SHOW_MODELS=true`: keeps the model picker and variant selector visible beneath the chat input; set it to `false` to hide them.
 - `LLM_MODEL_PATH`: selects the default bundled GGUF model identifier.
 - `LLM_N_CTX`, `LLM_N_GPU_LAYERS`, `LLM_MAX_THREADS`, `LLM_BATCH_SIZE`, `LLM_MAX_CONCURRENCY`, `LLM_PARALLEL_N`: control llama.cpp context size, GPU offload, threading, batching, and concurrency.
+- `LLM_KV_UNIFIED`, `LLM_CACHE_RAM`, `LLM_CTX_CHECKPOINTS`, `LLM_CHECKPOINT_MIN_STEP`: configure llama.cpp server-side KV sharing, cache budget, and prompt checkpoint retention behavior.
+- `LLM_SPEC_TYPE`, `LLM_SPEC_DRAFT_N_MAX`, `LLM_SPEC_DRAFT_N_MIN`, `LLM_SPEC_DRAFT_P_MIN`, `LLM_N_GPU_LAYERS_DRAFT`, `LLM_SPEC_DRAFT_TYPE_K`, `LLM_SPEC_DRAFT_TYPE_V`: configure llama.cpp speculative decoding, including the draft mode, token budget, minimum draft acceptance probability, draft GPU offload, and draft KV cache types.
+- `LLM_SPLIT_MODE`: optional llama.cpp multi-GPU split strategy override (`none`, `layer`, `row`, `tensor`). Leave it unset unless you explicitly want to override the bundled server default.
 - `LLM_FLASH_ATTENTION`, `LLM_USE_MMAP`, `LLM_USE_MLOCK`: control llama.cpp runtime memory and attention optimizations.
 - `LLM_TEMPERATURE`, `LLM_TOP_P`, `LLM_TOP_K`, `LLM_MIN_P`, `LLM_REPEAT_PENALTY`, `LLM_REPEAT_LAST_N`: sampling defaults chosen to avoid greedy repetition loops on reasoning models.
 - `LLM_CACHE_TYPE_K`, `LLM_CACHE_TYPE_V`: configure the KV cache quantization mode.

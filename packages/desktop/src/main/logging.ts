@@ -1,3 +1,4 @@
+import { app } from "electron"
 import { MainLogger } from "electron-log"
 import log from "electron-log/main.js"
 import { readFileSync, readdirSync, statSync, unlinkSync } from "node:fs"
@@ -10,6 +11,9 @@ let logger: MainLogger
 export const getLogger = () => logger
 
 export function initLogging() {
+  const logsDir = join(app.getPath("appData"), "@flashcode-ai", "desktop", "logs")
+  app.setAppLogsPath(logsDir)
+  log.transports.file.resolvePathFn = () => join(logsDir, "main.log")
   log.transports.file.maxSize = 5 * 1024 * 1024
   initConsoleTransport()
   cleanup()

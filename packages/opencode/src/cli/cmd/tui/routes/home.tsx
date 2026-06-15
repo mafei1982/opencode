@@ -1,6 +1,5 @@
 import { Prompt, type PromptRef } from "@tui/component/prompt"
 import { createEffect, createSignal, onMount } from "solid-js"
-import { Logo } from "../component/logo"
 import { useProject } from "../context/project"
 import { useSync } from "../context/sync"
 import { Toast } from "../ui/toast"
@@ -64,9 +63,7 @@ export function Home() {
         <box flexGrow={1} minHeight={0} />
         <box height={4} minHeight={0} flexShrink={1} />
         <box flexShrink={0}>
-          <TuiPluginRuntime.Slot name="home_logo" mode="replace">
-            <Logo />
-          </TuiPluginRuntime.Slot>
+          <TuiPluginRuntime.Slot name="home_logo" mode="replace" />
         </box>
         <box height={1} minHeight={0} flexShrink={1} />
         <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0}>

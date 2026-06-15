@@ -85,6 +85,7 @@ export function getDesktopEnvConfig(env = process.env) {
   return {
     defaultTheme: defaultTheme || undefined,
     showSettings: readBoolean(env.OPENCODE_SHOW_SETTINGS, false),
+    showModels: readBoolean(env.SHOW_MODELS ?? env.OPENCODE_SHOW_MODELS, true),
     providerManagement: !shouldLockLocalProviders(env),
   }
 }

@@ -37,7 +37,7 @@ import {
 } from "./windows"
 import { migrate } from "./migrate"
 import { checkUpdate, checkForUpdates, installUpdate, setupAutoUpdater } from "./updater"
-import { Deferred, Effect, Fiber } from "effect"
+import { Cause, Deferred, Effect, Exit, Fiber } from "effect"
 
 const APP_NAMES: Record<string, string> = {
   dev: "FlashCode Dev",
@@ -226,7 +226,7 @@ const main = Effect.gen(function* () {
     })
   }
 
-  const serverReady = Deferred.makeUnsafe<ServerReadyData>()
+  const serverReady = Deferred.makeUnsafe<ServerReadyData, unknown>()
   const loadingComplete = Deferred.makeUnsafe<void>()
 
   registerIpcHandlers({
@@ -259,7 +259,10 @@ const main = Effect.gen(function* () {
     checkAppExists: (appName) => checkAppExists(appName),
     wslPath: async (path, mode) => wslPath(path, mode),
     resolveAppPath: async (appName) => resolveAppPath(appName),
-    loadingWindowComplete: () => Deferred.doneUnsafe(loadingComplete, Effect.void),
+    loadingWindowComplete: () => {
+      logger.log("loading window complete")
+      Deferred.doneUnsafe(loadingComplete, Effect.void)
+    },
     runUpdater: async (alertOnFail) => checkForUpdates(alertOnFail, killSidecar),
     checkUpdate: async () => checkUpdate(),
     installUpdate: async () => installUpdate(killSidecar),
@@ -384,10 +387,25 @@ const main = Effect.gen(function* () {
     }
   }
 
-  yield* Fiber.await(loadingTask)
+  const loadingExit = yield* Fiber.await(loadingTask)
+  if (Exit.isFailure(loadingExit)) {
+    logger.error("loading task failed", Cause.pretty(loadingExit.cause))
+    if (!(yield* Deferred.isDone(serverReady))) {
+      yield* Deferred.fail(serverReady, Cause.squash(loadingExit.cause))
+    }
+  }
   setInitStep({ phase: "done" })
 
-  if (overlay) yield* Deferred.await(loadingComplete)
+  if (overlay) {
+    yield* Deferred.await(loadingComplete).pipe(
+      Effect.timeout("5 seconds"),
+      Effect.catch(() =>
+        Effect.sync(() => {
+          logger.warn("loading window completion timed out; continuing startup")
+        }),
+      ),
+    )
+  }
 
   mainWindow = createMainWindow()
   if (mainWindow) {

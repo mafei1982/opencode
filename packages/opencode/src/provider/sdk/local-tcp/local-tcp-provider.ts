@@ -21,14 +21,29 @@ let singletonServer: LocalTcpServer | undefined
 let singletonLoadPromise: Promise<LocalTcpServer> | undefined
 let hooksInstalled = false
 
+type GpuLayers = number | "all" | "auto"
+type SplitMode = "none" | "layer" | "row" | "tensor"
+
 export interface LocalTcpProviderOptions {
   modelPath?: string
   nCtx?: number
   nGpuLayers?: number
+  nGpuLayersDraft?: GpuLayers
+  splitMode?: SplitMode
   batchSize?: number
   threads?: number
   maxThreads?: number
   sequences?: number
+  kvUnified?: boolean
+  cacheRam?: number
+  ctxCheckpoints?: number
+  checkpointMinStep?: number
+  specType?: string
+  specDraftNMax?: number
+  specDraftNMin?: number
+  specDraftPMin?: number
+  specDraftTypeK?: string
+  specDraftTypeV?: string
   cacheTypeK?: string
   cacheTypeV?: string
   flashAttention?: boolean
@@ -67,6 +82,27 @@ function parseBooleanEnv(value: string | undefined) {
   return value ? value.toLowerCase() === "true" : undefined
 }
 
+function parseStringEnv(value: string | undefined) {
+  const normalized = value?.trim()
+  return normalized ? normalized : undefined
+}
+
+function parseGpuLayersEnv(value: string | undefined): GpuLayers | undefined {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return
+  if (normalized === "all" || normalized === "auto") return normalized
+
+  const parsed = parseInt(normalized, 10)
+  if (!Number.isNaN(parsed)) return parsed
+}
+
+function parseSplitMode(value: string | undefined): SplitMode | undefined {
+  const normalized = value?.trim().toLowerCase()
+  if (normalized === "none" || normalized === "layer" || normalized === "row" || normalized === "tensor") {
+    return normalized
+  }
+}
+
 function quoteCommandArg(value: string) {
   if (value.length === 0) return '""'
   if (!/[\s"]/g.test(value)) return value
@@ -86,6 +122,8 @@ function resolveOptions(options?: LocalTcpProviderOptions): Required<Pick<LocalT
     modelPath: options?.modelPath ?? process.env.LLM_MODEL_PATH ?? DEFAULT_MODEL_PATH,
     nCtx: options?.nCtx ?? parseIntEnv(process.env.LLM_N_CTX),
     nGpuLayers: options?.nGpuLayers ?? parseIntEnv(process.env.LLM_N_GPU_LAYERS),
+    nGpuLayersDraft: options?.nGpuLayersDraft ?? parseGpuLayersEnv(process.env.LLM_N_GPU_LAYERS_DRAFT),
+    splitMode: options?.splitMode ?? parseSplitMode(process.env.LLM_SPLIT_MODE),
     batchSize: options?.batchSize ?? parseIntEnv(process.env.LLM_BATCH_SIZE),
     threads: options?.threads ?? parseIntEnv(process.env.LLM_THREADS),
     maxThreads: options?.maxThreads ?? parseIntEnv(process.env.LLM_MAX_THREADS),
@@ -94,6 +132,16 @@ function resolveOptions(options?: LocalTcpProviderOptions): Required<Pick<LocalT
       parseIntEnv(process.env.LLM_PARALLEL_N) ??
       parseIntEnv(process.env.LLM_SEQUENCES) ??
       parseIntEnv(process.env.LLM_MAX_CONCURRENCY),
+    kvUnified: options?.kvUnified ?? parseBooleanEnv(process.env.LLM_KV_UNIFIED),
+    cacheRam: options?.cacheRam ?? parseIntEnv(process.env.LLM_CACHE_RAM),
+    ctxCheckpoints: options?.ctxCheckpoints ?? parseIntEnv(process.env.LLM_CTX_CHECKPOINTS),
+    checkpointMinStep: options?.checkpointMinStep ?? parseIntEnv(process.env.LLM_CHECKPOINT_MIN_STEP),
+    specType: options?.specType ?? parseStringEnv(process.env.LLM_SPEC_TYPE),
+    specDraftNMax: options?.specDraftNMax ?? parseIntEnv(process.env.LLM_SPEC_DRAFT_N_MAX),
+    specDraftNMin: options?.specDraftNMin ?? parseIntEnv(process.env.LLM_SPEC_DRAFT_N_MIN),
+    specDraftPMin: options?.specDraftPMin ?? parseFloatEnv(process.env.LLM_SPEC_DRAFT_P_MIN),
+    specDraftTypeK: options?.specDraftTypeK ?? parseStringEnv(process.env.LLM_SPEC_DRAFT_TYPE_K),
+    specDraftTypeV: options?.specDraftTypeV ?? parseStringEnv(process.env.LLM_SPEC_DRAFT_TYPE_V),
     cacheTypeK: options?.cacheTypeK ?? process.env.LLM_CACHE_TYPE_K,
     cacheTypeV: options?.cacheTypeV ?? process.env.LLM_CACHE_TYPE_V,
     flashAttention: options?.flashAttention ?? parseBooleanEnv(process.env.LLM_FLASH_ATTENTION),
@@ -357,9 +405,21 @@ export async function loadLocalTcpServer(options?: LocalTcpProviderOptions) {
 
     if (resolved.nCtx !== undefined) args.push("--ctx-size", String(resolved.nCtx))
     if (resolved.nGpuLayers !== undefined) args.push("--gpu-layers", String(resolved.nGpuLayers))
+    if (resolved.nGpuLayersDraft !== undefined) args.push("--n-gpu-layers-draft", String(resolved.nGpuLayersDraft))
+    if (resolved.splitMode) args.push("--split-mode", resolved.splitMode)
     if (resolved.batchSize !== undefined) args.push("--batch-size", String(resolved.batchSize))
     if (resolved.threads ?? resolved.maxThreads) args.push("--threads", String(resolved.threads ?? resolved.maxThreads))
     if (resolved.sequences !== undefined) args.push("--parallel", String(resolved.sequences))
+    if (resolved.kvUnified !== undefined) args.push(resolved.kvUnified ? "--kv-unified" : "--no-kv-unified")
+    if (resolved.cacheRam !== undefined) args.push("--cache-ram", String(resolved.cacheRam))
+    if (resolved.ctxCheckpoints !== undefined) args.push("--ctx-checkpoints", String(resolved.ctxCheckpoints))
+    if (resolved.checkpointMinStep !== undefined) args.push("--checkpoint-min-step", String(resolved.checkpointMinStep))
+    if (resolved.specType) args.push("--spec-type", resolved.specType)
+    if (resolved.specDraftNMax !== undefined) args.push("--spec-draft-n-max", String(resolved.specDraftNMax))
+    if (resolved.specDraftNMin !== undefined) args.push("--spec-draft-n-min", String(resolved.specDraftNMin))
+    if (resolved.specDraftPMin !== undefined) args.push("--spec-draft-p-min", String(resolved.specDraftPMin))
+    if (resolved.specDraftTypeK) args.push("--spec-draft-type-k", resolved.specDraftTypeK)
+    if (resolved.specDraftTypeV) args.push("--spec-draft-type-v", resolved.specDraftTypeV)
     if (resolved.cacheTypeK) args.push("--cache-type-k", resolved.cacheTypeK)
     if (resolved.cacheTypeV) args.push("--cache-type-v", resolved.cacheTypeV)
     if (resolved.flashAttention !== undefined) args.push("--flash-attn", resolved.flashAttention ? "on" : "off")

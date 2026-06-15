@@ -5,11 +5,18 @@ const api: ElectronAPI = {
   killSidecar: () => ipcRenderer.invoke("kill-sidecar"),
   installCli: () => ipcRenderer.invoke("install-cli"),
   awaitInitialization: (onStep) => {
-    const handler = (_: unknown, step: InitStep) => onStep(step)
-    ipcRenderer.on("init-step", handler)
-    return ipcRenderer.invoke("await-initialization").finally(() => {
+    let removed = false
+    const cleanup = () => {
+      if (removed) return
+      removed = true
       ipcRenderer.removeListener("init-step", handler)
-    })
+    }
+    const handler = (_: unknown, step: InitStep) => {
+      onStep(step)
+      if (step.phase === "done") cleanup()
+    }
+    ipcRenderer.on("init-step", handler)
+    return ipcRenderer.invoke("await-initialization")
   },
   getWindowConfig: () => ipcRenderer.invoke("get-window-config"),
   consumeInitialDeepLinks: () => ipcRenderer.invoke("consume-initial-deep-links"),

@@ -94,12 +94,93 @@ beforeEach(() => {
 
 afterEach(async () => {
   globalThis.fetch = originalFetch
+  delete process.env.LLM_CACHE_RAM
+  delete process.env.LLM_CHECKPOINT_MIN_STEP
+  delete process.env.LLM_CTX_CHECKPOINTS
   delete process.env.LLM_INFERENCE_TIMEOUT
+  delete process.env.LLM_KV_UNIFIED
   delete process.env.LLM_MAX_CONCURRENCY
+  delete process.env.LLM_N_GPU_LAYERS_DRAFT
   delete process.env.LLM_PARALLEL_N
   delete process.env.LLM_REPEAT_LAST_N
+  delete process.env.LLM_SPEC_DRAFT_N_MAX
+  delete process.env.LLM_SPEC_DRAFT_N_MIN
+  delete process.env.LLM_SPEC_DRAFT_P_MIN
+  delete process.env.LLM_SPEC_DRAFT_TYPE_K
+  delete process.env.LLM_SPEC_DRAFT_TYPE_V
+  delete process.env.LLM_SPEC_TYPE
+  delete process.env.LLM_SPLIT_MODE
   delete process.env.LLM_TCP_SERVER_PATH
   await stopLocalTcpServer()
+})
+
+test("local_tcp forwards kv/cache checkpoint envs to llama-server args", async () => {
+  process.env.LLM_TCP_SERVER_PATH = "C:/fake/llama-server.exe"
+  process.env.LLM_KV_UNIFIED = "true"
+  process.env.LLM_CACHE_RAM = "8192"
+  process.env.LLM_CTX_CHECKPOINTS = "32"
+  process.env.LLM_CHECKPOINT_MIN_STEP = "256"
+  const provider = createLocalTcp({
+    modelPath: "fake/model.gguf",
+    startupTimeout: 1_000,
+  })
+
+  await provider.languageModel("default").doGenerate({} as never)
+
+  expect(spawnArgs).toBeDefined()
+  expect(spawnArgs).toContain("--kv-unified")
+  expect(spawnArgs).toContain("--cache-ram")
+  expect(spawnArgs).toContain("8192")
+  expect(spawnArgs).toContain("--ctx-checkpoints")
+  expect(spawnArgs).toContain("32")
+  expect(spawnArgs).toContain("--checkpoint-min-step")
+  expect(spawnArgs).toContain("256")
+})
+
+test("local_tcp forwards speculative decoding envs to llama-server args", async () => {
+  process.env.LLM_TCP_SERVER_PATH = "C:/fake/llama-server.exe"
+  process.env.LLM_SPEC_TYPE = "draft-mtp"
+  process.env.LLM_SPEC_DRAFT_N_MAX = "2"
+  process.env.LLM_SPEC_DRAFT_N_MIN = "0"
+  process.env.LLM_SPEC_DRAFT_P_MIN = "0.00"
+  process.env.LLM_N_GPU_LAYERS_DRAFT = "all"
+  process.env.LLM_SPEC_DRAFT_TYPE_K = "f16"
+  process.env.LLM_SPEC_DRAFT_TYPE_V = "f16"
+  const provider = createLocalTcp({
+    modelPath: "fake/model.gguf",
+    startupTimeout: 1_000,
+  })
+
+  await provider.languageModel("default").doGenerate({} as never)
+
+  expect(spawnArgs).toBeDefined()
+  expect(spawnArgs).toContain("--spec-type")
+  expect(spawnArgs).toContain("draft-mtp")
+  expect(spawnArgs).toContain("--spec-draft-n-max")
+  expect(spawnArgs).toContain("2")
+  expect(spawnArgs).toContain("--spec-draft-n-min")
+  expect(spawnArgs).toContain("0")
+  expect(spawnArgs).toContain("--spec-draft-p-min")
+  expect(spawnArgs).toContain("--n-gpu-layers-draft")
+  expect(spawnArgs).toContain("all")
+  expect(spawnArgs).toContain("--spec-draft-type-k")
+  expect(spawnArgs).toContain("--spec-draft-type-v")
+})
+
+test("local_tcp forwards split_mode from env to llama-server args", async () => {
+  process.env.LLM_TCP_SERVER_PATH = "C:/fake/llama-server.exe"
+  process.env.LLM_SPLIT_MODE = "row"
+  const provider = createLocalTcp({
+    modelPath: "fake/model.gguf",
+    startupTimeout: 1_000,
+  })
+
+  await provider.languageModel("default").doGenerate({} as never)
+
+  expect(spawnArgs).toBeDefined()
+  const splitModeIndex = spawnArgs?.indexOf("--split-mode") ?? -1
+  expect(splitModeIndex).toBeGreaterThan(-1)
+  expect(spawnArgs?.[splitModeIndex + 1]).toBe("row")
 })
 
 test("local_tcp forwards parallel_n from env to llama-server args", async () => {

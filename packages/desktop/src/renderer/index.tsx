@@ -60,6 +60,7 @@ const deepLinkEvent = "opencode:deep-link"
 const windowConfigFallback: WindowConfig = {
   updaterEnabled: false,
   showSettings: false,
+  showModels: true,
   providerManagement: false,
 }
 
@@ -138,6 +139,7 @@ const createPlatform = (windowConfig: WindowConfig): Platform => {
     os,
     version: pkg.version,
     showSettings: windowConfig.showSettings,
+    showModels: windowConfig.showModels,
     providerManagement: windowConfig.providerManagement,
 
     async openDirectoryPickerDialog(opts) {

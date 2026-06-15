@@ -74,7 +74,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     platform.platform !== "desktop" ||
     import.meta.env.VITE_OPENCODE_CHANNEL !== "beta" ||
     settings.general.showFileTree()
-  const showModelControls = () => platform.providerManagement !== false
+  const showModelControls = () => platform.showModels !== false && platform.providerManagement !== false
 
   const idle = { type: "idle" as const }
   const status = () => sync.data.session_status[params.id ?? ""] ?? idle

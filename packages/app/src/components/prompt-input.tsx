@@ -1061,7 +1061,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     readClipboardImage: platform.readClipboardImage,
   })
 
-  const showModelControls = createMemo(() => platform.providerManagement !== false)
+  const showModelControls = createMemo(() => platform.showModels !== false && platform.providerManagement !== false)
   const variants = createMemo(() => ["default", ...local.model.variant.list()])
   const accepting = createMemo(() => {
     const id = params.id

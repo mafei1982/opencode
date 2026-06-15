@@ -46,6 +46,10 @@ function tone() {
   return nativeTheme.shouldUseDarkColors ? "dark" : "light"
 }
 
+function windowTitle() {
+  return app.getName() || "FlashCode"
+}
+
 function overlay(theme: Partial<TitlebarTheme> = {}, zoom = 1) {
   const mode = theme.mode ?? tone()
   return {
@@ -71,6 +75,14 @@ export function setDockIcon() {
   if (!icon.isEmpty()) app.dock?.setIcon(icon)
 }
 
+function syncTitle(win: BrowserWindow) {
+  win.setTitle(windowTitle())
+  win.on("page-title-updated", (event) => {
+    event.preventDefault()
+    win.setTitle(windowTitle())
+  })
+}
+
 export function createMainWindow() {
   const state = windowState({
     defaultWidth: 1280,
@@ -84,7 +96,7 @@ export function createMainWindow() {
     width: state.width,
     height: state.height,
     show: false,
-    title: "OpenCode",
+    title: windowTitle(),
     icon: iconPath(),
     backgroundColor,
     ...(process.platform === "darwin"
@@ -109,6 +121,7 @@ export function createMainWindow() {
   })
 
   allowClipboardWrite(win)
+  syncTitle(win)
 
   win.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
     const { requestHeaders } = details
@@ -142,6 +155,7 @@ export function createLoadingWindow() {
     resizable: false,
     center: true,
     show: true,
+    title: windowTitle(),
     icon: iconPath(),
     backgroundColor,
     ...(process.platform === "darwin" ? { titleBarStyle: "hidden" as const } : {}),
@@ -161,6 +175,7 @@ export function createLoadingWindow() {
   })
 
   allowClipboardWrite(win)
+  syncTitle(win)
 
   loadWindow(win, "loading.html")
 
