@@ -28,3 +28,20 @@ test("resolveLocalGgufPath resolves explicit GGUF paths unchanged", async () => 
 
   expect(resolveLocalGgufPath(ggufPath)).toBe(ggufPath)
 })
+
+test("resolveLocalGgufPath defaults to the current working directory models folder", async () => {
+  await using tmp = await tmpdir()
+  const originalCwd = process.cwd()
+  const modelDir = path.join(tmp.path, "models", "Jackrong", "Qwopus3.6-27B-v2-MTP-GGUF")
+  await mkdir(modelDir, { recursive: true })
+
+  const ggufPath = path.join(modelDir, "Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf")
+  await Bun.write(ggufPath, "test")
+
+  try {
+    process.chdir(tmp.path)
+    expect(resolveLocalGgufPath("Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q4_K_M")).toBe(ggufPath)
+  } finally {
+    process.chdir(originalCwd)
+  }
+})

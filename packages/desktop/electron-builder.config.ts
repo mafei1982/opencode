@@ -35,10 +35,6 @@ const getBase = (): Configuration => ({
     buildResources: "resources",
   },
   files: ["out/**/*", "resources/**/*"],
-  asarUnpack: [
-    "node_modules/@node-llama-cpp/*/bins/**",
-    "node_modules/node-llama-cpp/llama/**",
-  ],
   extraResources: [
     {
       from: "native/",

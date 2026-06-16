@@ -114,7 +114,6 @@ const BUNDLED_PROVIDERS: Record<string, () => Promise<(opts: any) => BundledSDK>
   "gitlab-ai-provider": () => import("gitlab-ai-provider").then((m) => m.createGitLab),
   "@ai-sdk/github-copilot": () => import("./sdk/copilot/copilot-provider").then((m) => m.createOpenaiCompatible),
   "venice-ai-sdk-provider": () => import("venice-ai-sdk-provider").then((m) => m.createVenice),
-  "@opencode/local-llamacpp": () => import("./sdk/local/local-provider").then((m) => m.createLocal),
   "@opencode/local-tcp": () => import("./sdk/local-tcp/local-tcp-provider").then((m) => m.createLocalTcp),
 }
 
@@ -832,47 +831,6 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           },
         },
       }),
-    local: Effect.fnUntraced(function* () {
-      const env = {
-        ...process.env,
-        ...pickBy(yield* dep.env(), (value) => value !== undefined),
-      }
-      const isLocal = (env.LLM_PROVIDER ?? "").toLowerCase() === "local"
-      if (!isLocal) return { autoload: false }
-
-      return {
-        autoload: true,
-        options: {
-          modelPath: env.LLM_MODEL_PATH,
-          nCtx: env.LLM_N_CTX ? parseInt(env.LLM_N_CTX, 10) : undefined,
-          nGpuLayers: env.LLM_N_GPU_LAYERS ? parseInt(env.LLM_N_GPU_LAYERS, 10) : undefined,
-          batchSize: env.LLM_BATCH_SIZE ? parseInt(env.LLM_BATCH_SIZE, 10) : undefined,
-          threads: env.LLM_THREADS ? parseInt(env.LLM_THREADS, 10) : undefined,
-          maxThreads: env.LLM_MAX_THREADS ? parseInt(env.LLM_MAX_THREADS, 10) : undefined,
-          sequences: env.LLM_SEQUENCES
-            ? parseInt(env.LLM_SEQUENCES, 10)
-            : env.LLM_MAX_CONCURRENCY
-              ? parseInt(env.LLM_MAX_CONCURRENCY, 10)
-              : undefined,
-          cacheTypeK: env.LLM_CACHE_TYPE_K,
-          cacheTypeV: env.LLM_CACHE_TYPE_V,
-          flashAttention: env.LLM_FLASH_ATTENTION ? env.LLM_FLASH_ATTENTION.toLowerCase() === "true" : undefined,
-          useMmap: env.LLM_USE_MMAP ? env.LLM_USE_MMAP.toLowerCase() === "true" : undefined,
-          useMlock: env.LLM_USE_MLOCK ? env.LLM_USE_MLOCK.toLowerCase() === "true" : undefined,
-          disableThinking: (env.LLM_DISABLE_THINKING ?? "").toLowerCase() === "true",
-          temperature: env.LLM_TEMPERATURE ? parseFloat(env.LLM_TEMPERATURE) : undefined,
-          topP: env.LLM_TOP_P ? parseFloat(env.LLM_TOP_P) : undefined,
-          topK: env.LLM_TOP_K ? parseInt(env.LLM_TOP_K, 10) : undefined,
-          minP: env.LLM_MIN_P ? parseFloat(env.LLM_MIN_P) : undefined,
-          repeatPenalty: env.LLM_REPEAT_PENALTY ? parseFloat(env.LLM_REPEAT_PENALTY) : undefined,
-          inferenceTimeout:
-            env.LLM_INFERENCE_TIMEOUT !== undefined && env.LLM_INFERENCE_TIMEOUT !== ""
-              ? parseInt(env.LLM_INFERENCE_TIMEOUT, 10)
-              : undefined,
-          inferenceRetries: env.LLM_INFERENCE_RETRIES ? parseInt(env.LLM_INFERENCE_RETRIES, 10) : undefined,
-        },
-      }
-    }),
     local_tcp: Effect.fnUntraced(function* () {
       const env = {
         ...process.env,
@@ -1186,52 +1144,7 @@ const layer: Layer.Layer<
         const modelsDev = yield* modelsDevSvc.get()
         const database = mapValues(modelsDev, fromModelsDevProvider)
 
-        // Inject synthetic "local" provider entry when LLM_PROVIDER=local.
-        // This provider is not in models.dev, so we create it manually.
         const llmProvider = (envState.LLM_PROVIDER ?? "").toLowerCase()
-
-        if (llmProvider === "local") {
-          const localModelName = envState.LLM_MODEL_PATH ?? "local-model"
-          database[ProviderID.local] = {
-            id: ProviderID.local,
-            name: "Local (llama.cpp)",
-            source: "custom",
-            env: [],
-            options: {},
-            models: {
-              default: {
-                id: ModelID.make("default"),
-                providerID: ProviderID.local,
-                name: `Local Model (${localModelName})`,
-                family: "",
-                api: {
-                  id: "default",
-                  url: "",
-                  npm: "@opencode/local-llamacpp",
-                },
-                status: "active",
-                headers: {},
-                options: {},
-                cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
-                limit: {
-                  context: parseInt(envState.LLM_N_CTX ?? "128000", 10),
-                  output: parseInt(envState.LLM_N_CTX ?? "128000", 10),
-                },
-                capabilities: {
-                  temperature: true,
-                  reasoning: true,
-                  attachment: false,
-                  toolcall: true,
-                  input: { text: true, audio: false, image: false, video: false, pdf: false },
-                  output: { text: true, audio: false, image: false, video: false, pdf: false },
-                  interleaved: false,
-                },
-                release_date: "",
-                variants: {},
-              },
-            },
-          }
-        }
 
         if (llmProvider === "local_tcp") {
           const localModelName = envState.LLM_MODEL_PATH ?? "local-model"
@@ -1317,9 +1230,13 @@ const layer: Layer.Layer<
         const configProviders = Object.entries(cfg.provider ?? {})
         const disabled = new Set(cfg.disabled_providers ?? [])
 
-        // When LLM_PROVIDER=local and no explicit enabled_providers in config,
-        // auto-restrict to only the local provider
-        const autoEnabledProvider = llmProvider === "local" || llmProvider === "local_tcp" ? llmProvider : undefined
+        // When LLM_PROVIDER=local_tcp and no explicit enabled_providers in config,
+        // auto-restrict to only the local_tcp provider unless non-local providers
+        // were explicitly re-enabled through env.
+        const lockNonLocalProviders =
+          llmProvider === "local_tcp" &&
+          !["0", "false", "no", "off"].includes((envState.LLM_DISABLE_NON_LOCAL_PROVIDERS ?? "").trim().toLowerCase())
+        const autoEnabledProvider = lockNonLocalProviders ? llmProvider : undefined
         const enabled = cfg.enabled_providers
           ? new Set(cfg.enabled_providers)
           : autoEnabledProvider
@@ -1725,7 +1642,7 @@ const layer: Layer.Layer<
           if (!item.entrypoint) throw new Error(`Package ${model.api.npm} has no import entrypoint`)
           installedPath = item.entrypoint
         } else {
-          log.info("loading local provider", { pkg: model.api.npm })
+          log.info("loading provider from file path", { pkg: model.api.npm })
           installedPath = model.api.npm
         }
 
@@ -1873,11 +1790,7 @@ const layer: Layer.Layer<
       const cfg = yield* config.get()
       if (cfg.model) return parseModel(cfg.model)
 
-      // In local mode, default to local/default
       const s = yield* InstanceState.get(state)
-      if (s.providers[ProviderID.local]?.models["default"]) {
-        return { providerID: ProviderID.local, modelID: ModelID.make("default") }
-      }
       const recent = yield* fs.readJson(path.join(Global.Path.state, "model.json")).pipe(
         Effect.map((x): { providerID: ProviderID; modelID: ModelID }[] => {
           if (!isRecord(x) || !Array.isArray(x.recent)) return []

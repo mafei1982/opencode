@@ -96,31 +96,6 @@ async function start(command: StartCommand) {
     })
     parentPort.postMessage({ type: "ready" })
 
-    // Load local LLM model after server is ready (non-blocking)
-    // Download progress is reported; model loading in memory happens in background
-    if ((process.env.LLM_PROVIDER ?? "").toLowerCase() === "local") {
-      console.log("[sidecar] Loading local LLM model (llama.cpp)...")
-      import("virtual:opencode-server")
-        .then(({ loadLocalModel }) =>
-          loadLocalModel(undefined, (p: { totalSize: number; downloadedSize: number }) => {
-            const percent = p.totalSize > 0 ? Math.round((p.downloadedSize / p.totalSize) * 100) : 0
-            parentPort.postMessage({
-              type: "llm",
-              progress: { type: "InProgress", percent, downloadedSize: p.downloadedSize, totalSize: p.totalSize },
-            })
-          }),
-        )
-        .then(() => {
-          parentPort.postMessage({ type: "llm", progress: { type: "Done" } })
-          console.log("[sidecar] Local LLM model loaded successfully.")
-        })
-        .catch((llmError: unknown) => {
-          const msg = llmError instanceof Error ? llmError.message : String(llmError)
-          console.error("[sidecar] Failed to load local LLM model, continuing without it:", llmError)
-          parentPort.postMessage({ type: "llm", progress: { type: "Error", message: msg } })
-        })
-    }
-
     if ((process.env.LLM_PROVIDER ?? "").toLowerCase() === "local_tcp") {
       console.log("[sidecar] Starting local llama.cpp server...")
       import("virtual:opencode-server")
@@ -164,18 +139,15 @@ function prepareSidecarEnv(password: string, userDataPath: string) {
 }
 
 /**
- * Ensure LLM_MODEL_DIR points to a persistent directory on the same drive
- * as the packaged app, but outside the app bundle so it survives repackaging.
+ * Ensure LLM_MODEL_DIR points to the running app directory's models folder.
  */
 function ensureModelDir() {
   if (process.env.LLM_MODEL_DIR) return
   const appRoot = process.resourcesPath
     ? path.dirname(process.resourcesPath)
     : path.resolve(__dirname, "../..")
-  // Put models at drive root (e.g. D:\.flashcode\models) so they persist
-  // across app rebuilds — the old <app-root>/models got wiped by package:win
-  const drive = path.parse(appRoot).root
-  process.env.LLM_MODEL_DIR = path.join(drive, ".flashcode", "models")
+  process.env.LLM_MODEL_DIR = path.join(appRoot, "models")
+  fs.mkdirSync(process.env.LLM_MODEL_DIR, { recursive: true })
   console.log(`[sidecar] LLM_MODEL_DIR auto-set to ${process.env.LLM_MODEL_DIR}`)
 }
 

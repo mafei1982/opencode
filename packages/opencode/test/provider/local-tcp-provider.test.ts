@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test"
+import path from "node:path"
 
 type CapturedFetchInit = BunFetchRequestInit & { timeout?: boolean }
 
 const fetchCalls: Array<{ input: string; init?: CapturedFetchInit }> = []
 let spawnArgs: string[] | undefined
+let spawnEnv: Record<string, string | undefined> | undefined
 
 void mock.module("@ai-sdk/openai-compatible", () => ({
   createOpenAICompatible: mock((config: {
@@ -52,8 +54,9 @@ void mock.module("../../src/provider/sdk/local/gguf-resolver", () => ({
 }))
 
 void mock.module("@/util/process", () => ({
-  spawn: mock((_args: string[]) => {
+  spawn: mock((_args: string[], options?: { env?: Record<string, string | undefined> }) => {
     spawnArgs = _args
+    spawnEnv = options?.env
     return {
       exitCode: null,
       once: mock((_event: string, _handler: () => void) => undefined),
@@ -77,6 +80,7 @@ const originalFetch = globalThis.fetch
 beforeEach(() => {
   fetchCalls.length = 0
   spawnArgs = undefined
+  spawnEnv = undefined
   globalThis.fetch = mock(async (input: Parameters<typeof fetch>[0], init?: BunFetchRequestInit) => {
     fetchCalls.push({ input: String(input), init: init as CapturedFetchInit | undefined })
     if (String(input).endsWith("/models")) {
@@ -213,6 +217,19 @@ test("local_tcp forwards repeat_last_n from env to llama-server args", async () 
   expect(spawnArgs).toBeDefined()
   expect(spawnArgs).toContain("--repeat-last-n")
   expect(spawnArgs).toContain("1024")
+})
+
+test("local_tcp defaults LLAMA_CACHE to the current working directory models folder", async () => {
+  process.env.LLM_TCP_SERVER_PATH = "C:/fake/llama-server.exe"
+  delete process.env.LLM_MODEL_DIR
+  const provider = createLocalTcp({
+    modelPath: "fake/model.gguf",
+    startupTimeout: 1_000,
+  })
+
+  await provider.languageModel("default").doGenerate({} as never)
+
+  expect(spawnEnv?.LLAMA_CACHE).toBe(path.join(process.cwd(), "models"))
 })
 
 test("local_tcp keeps the caller abort signal unchanged when env inference timeout is zero", async () => {

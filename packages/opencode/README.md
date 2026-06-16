@@ -65,9 +65,8 @@ LLM_MAX_CONCURRENCY=1
 LLM_FLASH_ATTENTION=true
 LLM_USE_MMAP=true
 LLM_USE_MLOCK=true
-# Sampling: node-llama-cpp defaults temperature to 0 (greedy) when unset, which
-# causes repetition loops / endless <think> on reasoning models. Use Qwen-style
-# thinking-model defaults.
+# Sampling: reasoning models can loop when decoding is too greedy. Use
+# Qwen-style thinking-model defaults.
 LLM_TEMPERATURE=0.8
 LLM_TOP_P=0.95
 LLM_TOP_K=40

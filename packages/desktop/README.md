@@ -106,7 +106,7 @@ Packaged desktop runs also rewrite `FLASHCODE_TOOLS_DIR` to the bundled `resourc
 At runtime the desktop sidecar does the following:
 
 1. loads bundled `llm.env` from the app resources directory when present
-2. auto-sets `LLM_MODEL_DIR` to `<drive>/.flashcode/models` if it is not already set
+2. auto-sets `LLM_MODEL_DIR` to the running app directory's `models/` folder if it is not already set
 3. extracts the embedded config payload into a temporary directory as encrypted files
 4. sets `FLASHCODE_EMBEDDED_CONFIG_DIR` to that extracted directory
 5. transparently decrypts embedded config files when loading config, agents, skills, commands, tools, and plugins
@@ -141,7 +141,7 @@ instead of `.opencode\tools\semantic-lint\bin\semantic-lint.exe`.
 - `LLM_ENV_FILE`: path to a `.env` file to bundle as `resources/llm.env`
 - local `llm.env` or `.env`: fallback sources bundled into `resources/llm.env` when `LLM_ENV_FILE` is not set
 - `LLM_PROVIDER`: when set to `local`, the sidecar preloads the local llama.cpp model after startup
-- `LLM_MODEL_DIR`: overrides where local GGUF models are stored; defaults to `<drive>/.flashcode/models` when unset
+- `LLM_MODEL_DIR`: overrides where local GGUF models are stored; defaults to the running app directory's `models/` folder when unset
 - `FLASHCODE_EMBEDDED_CONFIG_DIR`: canonical embedded-config env var. During build it points at the source config directory to embed; at runtime the sidecar rewrites it to the extracted encrypted config directory.
 - `FLASHCODE_TOOLS_DIR`: bundles extra tools into the packaged app at build time and is rewritten to the packaged `resources/tools` directory at runtime when available
 - `FLASHCODE_SHOW_DEFAULT_AGENTS`: when set, explicitly shows or hides the built-in `build` and `plan` agents regardless of agent `hidden` overrides in config.

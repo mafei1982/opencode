@@ -429,7 +429,7 @@ it.live("prompt emits v2 prompted and synthetic events", () =>
   ),
 )
 
-it.live("static loop returns assistant text through local provider", () =>
+it.live("static loop returns assistant text through configured provider", () =>
   provideTmpdirServer(
     Effect.fnUntraced(function* ({ llm }) {
       const prompt = yield* SessionPrompt.Service

@@ -9,7 +9,7 @@ import path from "node:path"
 import { randomUUID } from "node:crypto"
 import { fileURLToPath } from "node:url"
 import * as Process from "@/util/process"
-import { resolveLocalGgufPath } from "../local/gguf-resolver"
+import { getDefaultModelDir, resolveLocalGgufPath } from "../local/gguf-resolver"
 
 const log = Log.create({ service: "local-tcp-provider" })
 
@@ -433,7 +433,10 @@ export async function loadLocalTcpServer(options?: LocalTcpProviderOptions) {
     if (resolved.repeatPenalty !== undefined) args.push("--repeat-penalty", String(resolved.repeatPenalty))
     if (resolved.repeatLastN !== undefined) args.push("--repeat-last-n", String(resolved.repeatLastN))
 
+    const modelDir = process.env.LLM_MODEL_DIR || getDefaultModelDir()
+
     await mkdir(path.dirname(logPath), { recursive: true })
+    await mkdir(modelDir, { recursive: true })
     await truncate(logPath).catch(() => {})
     const redactedArgs = redactCommandArgs(args)
     await appendFile(
@@ -441,7 +444,7 @@ export async function loadLocalTcpServer(options?: LocalTcpProviderOptions) {
       [
         `[opencode] cwd: ${path.dirname(binary)}`,
         `[opencode] command: ${formatCommandForLog(redactedArgs)}`,
-        ...(process.env.LLM_MODEL_DIR ? [`[opencode] env LLAMA_CACHE=${process.env.LLM_MODEL_DIR}`] : []),
+        `[opencode] env LLAMA_CACHE=${modelDir}`,
         "",
       ].join("\n"),
     )
@@ -449,7 +452,7 @@ export async function loadLocalTcpServer(options?: LocalTcpProviderOptions) {
     const child = Process.spawn(args, {
       cwd: path.dirname(binary),
       env: {
-        LLAMA_CACHE: process.env.LLM_MODEL_DIR ?? undefined,
+        LLAMA_CACHE: modelDir,
       },
       stdout: "pipe",
       stderr: "pipe",

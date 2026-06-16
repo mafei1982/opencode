@@ -45,11 +45,11 @@ console.log(`Loaded ${migrations.length} migrations`)
 
 await Bun.build({
   target: "node",
-  entrypoints: ["./src/node.ts", "./src/provider/sdk/local/local-runtime-worker.ts"],
+  entrypoints: ["./src/node.ts"],
   outdir: "./dist/node",
   format: "esm",
   sourcemap: "linked",
-  external: ["jsonc-parser", "@lydell/node-pty", "node-llama-cpp", "@node-llama-cpp/win-x64"],
+  external: ["jsonc-parser", "@lydell/node-pty"],
   define: {
     OPENCODE_MIGRATIONS: JSON.stringify(migrations),
     OPENCODE_CHANNEL: `'${Script.channel}'`,

@@ -243,6 +243,41 @@ test("local_tcp mode auto-restricts enabled providers", async () => {
   }
 })
 
+test("local_tcp mode keeps non-local providers when explicitly re-enabled", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await Bun.write(
+        path.join(dir, "flashcode.json"),
+        JSON.stringify({
+          $schema: "https://opencode.ai/config.json",
+        }),
+      )
+    },
+  })
+
+  try {
+    process.env.LLM_PROVIDER = "local_tcp"
+    process.env.LLM_MODEL_PATH = "ggml-org/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_M"
+    process.env.LLM_DISABLE_NON_LOCAL_PROVIDERS = "false"
+    process.env.OPENAI_API_KEY = "test-openai-key"
+
+    await WithInstance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const providers = await list()
+        expect(providers[ProviderID.local_tcp]).toBeDefined()
+        expect(providers[ProviderID.openai]).toBeDefined()
+        expect(Object.keys(providers[ProviderID.openai].models).length).toBeGreaterThan(0)
+      },
+    })
+  } finally {
+    delete process.env.LLM_PROVIDER
+    delete process.env.LLM_MODEL_PATH
+    delete process.env.LLM_DISABLE_NON_LOCAL_PROVIDERS
+    delete process.env.OPENAI_API_KEY
+  }
+})
+
 test("model whitelist filters models for provider", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
