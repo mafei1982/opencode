@@ -30,6 +30,7 @@ export interface LocalTcpProviderOptions {
   nGpuLayers?: number
   nGpuLayersDraft?: GpuLayers
   splitMode?: SplitMode
+  devices?: string
   batchSize?: number
   threads?: number
   maxThreads?: number
@@ -87,6 +88,14 @@ function parseStringEnv(value: string | undefined) {
   return normalized ? normalized : undefined
 }
 
+function parseCommaSeparatedEnv(value: string | undefined) {
+  const normalized = value
+    ?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  return normalized?.length ? normalized.join(",") : undefined
+}
+
 function parseGpuLayersEnv(value: string | undefined): GpuLayers | undefined {
   const normalized = value?.trim().toLowerCase()
   if (!normalized) return
@@ -124,6 +133,7 @@ function resolveOptions(options?: LocalTcpProviderOptions): Required<Pick<LocalT
     nGpuLayers: options?.nGpuLayers ?? parseIntEnv(process.env.LLM_N_GPU_LAYERS),
     nGpuLayersDraft: options?.nGpuLayersDraft ?? parseGpuLayersEnv(process.env.LLM_N_GPU_LAYERS_DRAFT),
     splitMode: options?.splitMode ?? parseSplitMode(process.env.LLM_SPLIT_MODE),
+    devices: parseCommaSeparatedEnv(options?.devices) ?? parseCommaSeparatedEnv(process.env.LLM_CUDA_DEVICES),
     batchSize: options?.batchSize ?? parseIntEnv(process.env.LLM_BATCH_SIZE),
     threads: options?.threads ?? parseIntEnv(process.env.LLM_THREADS),
     maxThreads: options?.maxThreads ?? parseIntEnv(process.env.LLM_MAX_THREADS),
@@ -407,6 +417,7 @@ export async function loadLocalTcpServer(options?: LocalTcpProviderOptions) {
     if (resolved.nGpuLayers !== undefined) args.push("--gpu-layers", String(resolved.nGpuLayers))
     if (resolved.nGpuLayersDraft !== undefined) args.push("--n-gpu-layers-draft", String(resolved.nGpuLayersDraft))
     if (resolved.splitMode) args.push("--split-mode", resolved.splitMode)
+    if (resolved.devices) args.push("--device", resolved.devices)
     if (resolved.batchSize !== undefined) args.push("--batch-size", String(resolved.batchSize))
     if (resolved.threads ?? resolved.maxThreads) args.push("--threads", String(resolved.threads ?? resolved.maxThreads))
     if (resolved.sequences !== undefined) args.push("--parallel", String(resolved.sequences))

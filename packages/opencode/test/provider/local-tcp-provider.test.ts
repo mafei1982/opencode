@@ -50,6 +50,7 @@ void mock.module("node:fs/promises", () => ({
 }))
 
 void mock.module("../../src/provider/sdk/local/gguf-resolver", () => ({
+  getDefaultModelDir: mock(() => path.join(process.cwd(), "models")),
   resolveLocalGgufPath: mock(() => "D:/fake/model.gguf"),
 }))
 
@@ -97,6 +98,7 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
+  delete process.env.LLM_CUDA_DEVICES
   globalThis.fetch = originalFetch
   delete process.env.LLM_CACHE_RAM
   delete process.env.LLM_CHECKPOINT_MIN_STEP
@@ -116,6 +118,22 @@ afterEach(async () => {
   delete process.env.LLM_SPLIT_MODE
   delete process.env.LLM_TCP_SERVER_PATH
   await stopLocalTcpServer()
+})
+
+test("local_tcp forwards cuda devices from env to llama-server args", async () => {
+  process.env.LLM_TCP_SERVER_PATH = "C:/fake/llama-server.exe"
+  process.env.LLM_CUDA_DEVICES = " CUDA0, CUDA1 "
+  const provider = createLocalTcp({
+    modelPath: "fake/model.gguf",
+    startupTimeout: 1_000,
+  })
+
+  await provider.languageModel("default").doGenerate({} as never)
+
+  expect(spawnArgs).toBeDefined()
+  const deviceIndex = spawnArgs?.indexOf("--device") ?? -1
+  expect(deviceIndex).toBeGreaterThan(-1)
+  expect(spawnArgs?.[deviceIndex + 1]).toBe("CUDA0,CUDA1")
 })
 
 test("local_tcp forwards kv/cache checkpoint envs to llama-server args", async () => {

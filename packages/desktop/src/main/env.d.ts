@@ -1,4 +1,5 @@
 interface ImportMetaEnv {
+  readonly ENABLE_LICENSE_CHECK: boolean
   readonly OPENCODE_CHANNEL: string
 }
 

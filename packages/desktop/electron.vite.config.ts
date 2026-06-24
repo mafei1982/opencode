@@ -35,6 +35,18 @@ const sentry =
 const FLASHCODE_EMBEDDED_CONFIG_DIR = process.env.FLASHCODE_EMBEDDED_CONFIG_DIR
 const OPENCODE_DISABLE_AGENT_BUILD = process.env.OPENCODE_DISABLE_AGENT_BUILD === "true"
 const OPENCODE_DISABLE_AGENT_PLAN = process.env.OPENCODE_DISABLE_AGENT_PLAN === "true"
+const truthy = new Set(["1", "true", "yes", "on"])
+const falsy = new Set(["0", "false", "no", "off"])
+
+function readBuildBoolean(value: string | undefined, fallback: boolean) {
+  if (!value) return fallback
+  const normalized = value.trim().toLowerCase()
+  if (truthy.has(normalized)) return true
+  if (falsy.has(normalized)) return false
+  return fallback
+}
+
+const ENABLE_LICENSE_CHECK = readBuildBoolean(process.env.ENABLE_LICENSE_CHECK ?? process.env.enable_license_check, false)
 
 const BINARY_EXTENSIONS = new Set([".exe", ".dll", ".node", ".pdb", ".dylib", ".so", ".config", ".xml"])
 const IGNORED_EMBEDDED_CONFIG_FILES = new Set([".gitignore", "package.json", "package-lock.json"])
@@ -142,6 +154,7 @@ const EMBEDDED_CONFIG_VIRTUAL_ID = "virtual:embedded-config"
 export default defineConfig({
   main: {
     define: {
+      "import.meta.env.ENABLE_LICENSE_CHECK": JSON.stringify(ENABLE_LICENSE_CHECK),
       "import.meta.env.OPENCODE_CHANNEL": JSON.stringify(channel),
     },
     build: {

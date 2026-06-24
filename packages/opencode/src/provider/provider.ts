@@ -845,6 +845,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           modelPath: env.LLM_MODEL_PATH,
           nCtx: env.LLM_N_CTX ? parseInt(env.LLM_N_CTX, 10) : undefined,
           nGpuLayers: env.LLM_N_GPU_LAYERS ? parseInt(env.LLM_N_GPU_LAYERS, 10) : undefined,
+          devices: env.LLM_CUDA_DEVICES,
           batchSize: env.LLM_BATCH_SIZE ? parseInt(env.LLM_BATCH_SIZE, 10) : undefined,
           threads: env.LLM_THREADS ? parseInt(env.LLM_THREADS, 10) : undefined,
           maxThreads: env.LLM_MAX_THREADS ? parseInt(env.LLM_MAX_THREADS, 10) : undefined,

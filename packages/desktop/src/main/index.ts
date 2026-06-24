@@ -7,14 +7,15 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { getCACertificates, setDefaultCACertificates } from "node:tls"
 import type { Event } from "electron"
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, dialog } from "electron"
 
 import contextMenu from "electron-context-menu"
 
 import type { InitStep, LlmDownloadProgress, ServerReadyData, SqliteMigrationProgress, WslConfig } from "../preload/types"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
-import { CHANNEL, UPDATER_ENABLED } from "./constants"
+import { CHANNEL, ENABLE_LICENSE_CHECK, UPDATER_ENABLED } from "./constants"
 import { registerIpcHandlers, sendDeepLinks, sendLlmDownloadProgress, sendMenuCommand, sendSqliteMigrationProgress } from "./ipc"
+import { checkDesktopLicense, describeLicenseFailure, LICENSE_STATUS } from "./license"
 import { initLogging } from "./logging"
 import { getDesktopEnvConfig, loadBundledEnv } from "./llm-config"
 import { parseMarkdown } from "./markdown"
@@ -270,6 +271,22 @@ const main = Effect.gen(function* () {
   })
 
   yield* Effect.promise(() => app.whenReady())
+
+  if (app.isPackaged && ENABLE_LICENSE_CHECK) {
+    const licenseResult = checkDesktopLicense({ exePath: app.getPath("exe") })
+    if (licenseResult.code !== LICENSE_STATUS.PASS) {
+      logger.error("license check failed", licenseResult)
+      dialog.showErrorBox("License Error", describeLicenseFailure(licenseResult))
+      app.exit(1)
+      return
+    }
+
+    logger.log("license check passed", { path: licenseResult.path })
+  }
+
+  if (app.isPackaged && !ENABLE_LICENSE_CHECK) {
+    logger.log("license check disabled")
+  }
 
   if (!TEST_ONBOARDING) migrate()
   for (const scheme of DEEP_LINK_SCHEMES) {
