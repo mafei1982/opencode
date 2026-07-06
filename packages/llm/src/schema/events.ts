@@ -1,7 +1,8 @@
 import { Schema } from "effect"
-import { ContentBlockID, FinishReason, ProtocolID, ProviderMetadata, ResponseID, RouteID, ToolCallID } from "./ids"
-import { ModelRef } from "./options"
-import { ToolResultValue } from "./messages"
+import { ContentBlockID, FinishReason, ProtocolID, ProviderMetadata, RouteID, ToolCallID } from "./ids"
+import { ModelSchema } from "./options"
+import { Message, ToolCallPart, ToolOutput, ToolResultPart, ToolResultValue, type ContentPart } from "./messages"
+import { ProviderFailureClassification } from "./errors"
 
 /**
  * Token usage reported by an LLM provider.
@@ -66,14 +67,13 @@ export class Usage extends Schema.Class<Usage>("LLM.Usage")({
   get visibleOutputTokens() {
     return Math.max(0, (this.outputTokens ?? 0) - (this.reasoningTokens ?? 0))
   }
+
+  static from(input: UsageInput) {
+    return input instanceof Usage ? input : new Usage(input)
+  }
 }
 
-export const RequestStart = Schema.Struct({
-  type: Schema.tag("request-start"),
-  id: ResponseID,
-  model: ModelRef,
-}).annotate({ identifier: "LLM.Event.RequestStart" })
-export type RequestStart = Schema.Schema.Type<typeof RequestStart>
+export type UsageInput = Usage | ConstructorParameters<typeof Usage>[0]
 
 export const StepStart = Schema.Struct({
   type: Schema.tag("step-start"),
@@ -92,6 +92,7 @@ export const TextDelta = Schema.Struct({
   type: Schema.tag("text-delta"),
   id: ContentBlockID,
   text: Schema.String,
+  providerMetadata: Schema.optional(ProviderMetadata),
 }).annotate({ identifier: "LLM.Event.TextDelta" })
 export type TextDelta = Schema.Schema.Type<typeof TextDelta>
 
@@ -113,6 +114,7 @@ export const ReasoningDelta = Schema.Struct({
   type: Schema.tag("reasoning-delta"),
   id: ContentBlockID,
   text: Schema.String,
+  providerMetadata: Schema.optional(ProviderMetadata),
 }).annotate({ identifier: "LLM.Event.ReasoningDelta" })
 export type ReasoningDelta = Schema.Schema.Type<typeof ReasoningDelta>
 
@@ -162,6 +164,7 @@ export const ToolResult = Schema.Struct({
   id: ToolCallID,
   name: Schema.String,
   result: ToolResultValue,
+  output: Schema.optional(ToolOutput),
   providerExecuted: Schema.optional(Schema.Boolean),
   providerMetadata: Schema.optional(ProviderMetadata),
 }).annotate({ identifier: "LLM.Event.ToolResult" })
@@ -172,6 +175,7 @@ export const ToolError = Schema.Struct({
   id: ToolCallID,
   name: Schema.String,
   message: Schema.String,
+  error: Schema.optional(Schema.Defect()),
   providerMetadata: Schema.optional(ProviderMetadata),
 }).annotate({ identifier: "LLM.Event.ToolError" })
 export type ToolError = Schema.Schema.Type<typeof ToolError>
@@ -185,24 +189,24 @@ export const StepFinish = Schema.Struct({
 }).annotate({ identifier: "LLM.Event.StepFinish" })
 export type StepFinish = Schema.Schema.Type<typeof StepFinish>
 
-export const RequestFinish = Schema.Struct({
-  type: Schema.tag("request-finish"),
+export const Finish = Schema.Struct({
+  type: Schema.tag("finish"),
   reason: FinishReason,
   usage: Schema.optional(Usage),
   providerMetadata: Schema.optional(ProviderMetadata),
-}).annotate({ identifier: "LLM.Event.RequestFinish" })
-export type RequestFinish = Schema.Schema.Type<typeof RequestFinish>
+}).annotate({ identifier: "LLM.Event.Finish" })
+export type Finish = Schema.Schema.Type<typeof Finish>
 
 export const ProviderErrorEvent = Schema.Struct({
   type: Schema.tag("provider-error"),
   message: Schema.String,
+  classification: Schema.optional(ProviderFailureClassification),
   retryable: Schema.optional(Schema.Boolean),
   providerMetadata: Schema.optional(ProviderMetadata),
 }).annotate({ identifier: "LLM.Event.ProviderError" })
 export type ProviderErrorEvent = Schema.Schema.Type<typeof ProviderErrorEvent>
 
 const llmEventTagged = Schema.Union([
-  RequestStart,
   StepStart,
   TextStart,
   TextDelta,
@@ -217,13 +221,15 @@ const llmEventTagged = Schema.Union([
   ToolResult,
   ToolError,
   StepFinish,
-  RequestFinish,
+  Finish,
   ProviderErrorEvent,
 ]).pipe(Schema.toTaggedUnion("type"))
 
 type WithID<Event extends { readonly id: unknown }, ID> = Omit<Event, "type" | "id"> & { readonly id: ID | string }
+type WithUsage<Event extends { readonly usage?: Usage }> = Omit<Event, "type" | "usage"> & {
+  readonly usage?: UsageInput
+}
 
-const responseID = (value: ResponseID | string) => ResponseID.make(value)
 const contentBlockID = (value: ContentBlockID | string) => ContentBlockID.make(value)
 const toolCallID = (value: ToolCallID | string) => ToolCallID.make(value)
 
@@ -233,7 +239,6 @@ const toolCallID = (value: ToolCallID | string) => ToolCallID.make(value)
  * `events.filter(LLMEvent.guards["tool-call"])`.
  */
 export const LLMEvent = Object.assign(llmEventTagged, {
-  requestStart: (input: WithID<RequestStart, ResponseID>) => RequestStart.make({ ...input, id: responseID(input.id) }),
   stepStart: StepStart.make,
   textStart: (input: WithID<TextStart, ContentBlockID>) => TextStart.make({ ...input, id: contentBlockID(input.id) }),
   textDelta: (input: WithID<TextDelta, ContentBlockID>) => TextDelta.make({ ...input, id: contentBlockID(input.id) }),
@@ -250,13 +255,25 @@ export const LLMEvent = Object.assign(llmEventTagged, {
     ToolInputDelta.make({ ...input, id: toolCallID(input.id) }),
   toolInputEnd: (input: WithID<ToolInputEnd, ToolCallID>) => ToolInputEnd.make({ ...input, id: toolCallID(input.id) }),
   toolCall: (input: WithID<ToolCall, ToolCallID>) => ToolCall.make({ ...input, id: toolCallID(input.id) }),
-  toolResult: (input: WithID<ToolResult, ToolCallID>) => ToolResult.make({ ...input, id: toolCallID(input.id) }),
+  toolResult: (input: WithID<ToolResult, ToolCallID>) =>
+    ToolResult.make({
+      ...input,
+      id: toolCallID(input.id),
+      output: input.output === undefined ? undefined : ToolOutput.make(input.output.structured, input.output.content),
+    }),
   toolError: (input: WithID<ToolError, ToolCallID>) => ToolError.make({ ...input, id: toolCallID(input.id) }),
-  stepFinish: StepFinish.make,
-  requestFinish: RequestFinish.make,
+  stepFinish: (input: WithUsage<StepFinish>) =>
+    StepFinish.make({
+      ...input,
+      usage: input.usage === undefined ? undefined : Usage.from(input.usage),
+    }),
+  finish: (input: WithUsage<Finish>) =>
+    Finish.make({
+      ...input,
+      usage: input.usage === undefined ? undefined : Usage.from(input.usage),
+    }),
   providerError: ProviderErrorEvent.make,
   is: {
-    requestStart: llmEventTagged.guards["request-start"],
     stepStart: llmEventTagged.guards["step-start"],
     textStart: llmEventTagged.guards["text-start"],
     textDelta: llmEventTagged.guards["text-delta"],
@@ -271,7 +288,7 @@ export const LLMEvent = Object.assign(llmEventTagged, {
     toolResult: llmEventTagged.guards["tool-result"],
     toolError: llmEventTagged.guards["tool-error"],
     stepFinish: llmEventTagged.guards["step-finish"],
-    requestFinish: llmEventTagged.guards["request-finish"],
+    finish: llmEventTagged.guards.finish,
     providerError: llmEventTagged.guards["provider-error"],
   },
 })
@@ -281,7 +298,7 @@ export class PreparedRequest extends Schema.Class<PreparedRequest>("LLM.Prepared
   id: Schema.String,
   route: RouteID,
   protocol: ProtocolID,
-  model: ModelRef,
+  model: ModelSchema,
   body: Schema.Unknown,
   metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }) {}
@@ -318,9 +335,234 @@ const responseUsage = (events: ReadonlyArray<LLMEvent>) =>
     undefined,
   )
 
+interface ContentAssembly {
+  readonly contentIndex: number
+  readonly text: string
+  readonly providerMetadata?: ProviderMetadata
+}
+
+interface ToolInputAssembly {
+  readonly name: string
+  readonly text: string
+  readonly providerMetadata?: ProviderMetadata
+}
+
+interface ResponseState {
+  readonly events: ReadonlyArray<LLMEvent>
+  readonly message: Message
+  readonly usage?: Usage
+  readonly finishReason?: FinishReason
+  readonly textParts: Readonly<Record<string, ContentAssembly>>
+  readonly reasoningParts: Readonly<Record<string, ContentAssembly>>
+  readonly toolInputs: Readonly<Record<string, ToolInputAssembly>>
+}
+
+const emptyResponseState = (): ResponseState => ({
+  events: [],
+  message: Message.assistant([]),
+  textParts: {},
+  reasoningParts: {},
+  toolInputs: {},
+})
+
+const appendEvent = (state: ResponseState, event: LLMEvent): ResponseState => {
+  const events = [...state.events, event]
+  if (LLMEvent.is.finish(event)) {
+    return {
+      ...state,
+      events,
+      usage: event.usage ?? state.usage,
+      finishReason: event.reason,
+    }
+  }
+  if (LLMEvent.is.providerError(event)) {
+    return {
+      ...state,
+      events,
+      finishReason: state.finishReason ?? "error",
+    }
+  }
+  return {
+    ...state,
+    events,
+    usage: "usage" in event && event.usage !== undefined ? event.usage : state.usage,
+  }
+}
+
+const textContent = (text: string, providerMetadata: ProviderMetadata | undefined): ContentPart =>
+  providerMetadata === undefined ? { type: "text", text } : { type: "text", text, providerMetadata }
+
+const reasoningContent = (text: string, providerMetadata: ProviderMetadata | undefined): ContentPart =>
+  providerMetadata === undefined ? { type: "reasoning", text } : { type: "reasoning", text, providerMetadata }
+
+const contentWith = (state: ResponseState, content: ReadonlyArray<ContentPart>): ResponseState => ({
+  ...state,
+  message: Message.assistant(content),
+})
+
+const appendContent = (state: ResponseState, part: ContentPart) => contentWith(state, [...state.message.content, part])
+
+const replaceContent = (state: ResponseState, index: number, part: ContentPart) =>
+  contentWith(
+    state,
+    state.message.content.map((item, itemIndex) => (itemIndex === index ? part : item)),
+  )
+
+const ensureText = (state: ResponseState, id: string, providerMetadata?: ProviderMetadata): ResponseState => {
+  if (state.textParts[id]) return state
+  return {
+    ...appendContent(state, textContent("", providerMetadata)),
+    textParts: {
+      ...state.textParts,
+      [id]: { contentIndex: state.message.content.length, text: "", providerMetadata },
+    },
+  }
+}
+
+const reduceTextDelta = (state: ResponseState, event: TextDelta): ResponseState => {
+  const started = ensureText(state, event.id, event.providerMetadata)
+  const current = started.textParts[event.id]
+  if (!current) return started
+  const text = current.text + event.text
+  const providerMetadata = event.providerMetadata ?? current.providerMetadata
+  return {
+    ...replaceContent(started, current.contentIndex, textContent(text, providerMetadata)),
+    textParts: { ...started.textParts, [event.id]: { ...current, text, providerMetadata } },
+  }
+}
+
+const reduceTextEnd = (state: ResponseState, event: TextEnd): ResponseState => {
+  const current = state.textParts[event.id]
+  if (!current) return state
+  const providerMetadata = event.providerMetadata ?? current.providerMetadata
+  return {
+    ...replaceContent(state, current.contentIndex, textContent(current.text, providerMetadata)),
+    textParts: { ...state.textParts, [event.id]: { ...current, providerMetadata } },
+  }
+}
+
+const ensureReasoning = (state: ResponseState, id: string, providerMetadata?: ProviderMetadata): ResponseState => {
+  if (state.reasoningParts[id]) return state
+  return {
+    ...appendContent(state, reasoningContent("", providerMetadata)),
+    reasoningParts: {
+      ...state.reasoningParts,
+      [id]: { contentIndex: state.message.content.length, text: "", providerMetadata },
+    },
+  }
+}
+
+const reduceReasoningDelta = (state: ResponseState, event: ReasoningDelta): ResponseState => {
+  const started = ensureReasoning(state, event.id, event.providerMetadata)
+  const current = started.reasoningParts[event.id]
+  if (!current) return started
+  const text = current.text + event.text
+  const providerMetadata = event.providerMetadata ?? current.providerMetadata
+  return {
+    ...replaceContent(started, current.contentIndex, reasoningContent(text, providerMetadata)),
+    reasoningParts: { ...started.reasoningParts, [event.id]: { ...current, text, providerMetadata } },
+  }
+}
+
+const reduceReasoningEnd = (state: ResponseState, event: ReasoningEnd): ResponseState => {
+  const current = state.reasoningParts[event.id]
+  if (!current) return state
+  const providerMetadata = event.providerMetadata ?? current.providerMetadata
+  return {
+    ...replaceContent(state, current.contentIndex, reasoningContent(current.text, providerMetadata)),
+    reasoningParts: { ...state.reasoningParts, [event.id]: { ...current, providerMetadata } },
+  }
+}
+
+const reduceToolInputStart = (state: ResponseState, event: ToolInputStart): ResponseState => ({
+  ...state,
+  toolInputs: {
+    ...state.toolInputs,
+    [event.id]: { name: event.name, text: "", providerMetadata: event.providerMetadata },
+  },
+})
+
+const reduceToolInputDelta = (state: ResponseState, event: ToolInputDelta): ResponseState => {
+  const current = state.toolInputs[event.id] ?? { name: event.name, text: "" }
+  return {
+    ...state,
+    toolInputs: { ...state.toolInputs, [event.id]: { ...current, text: current.text + event.text } },
+  }
+}
+
+const reduceToolInputEnd = (state: ResponseState, event: ToolInputEnd): ResponseState => {
+  const current = state.toolInputs[event.id] ?? { name: event.name, text: "" }
+  return {
+    ...state,
+    toolInputs: {
+      ...state.toolInputs,
+      [event.id]: {
+        ...current,
+        name: event.name,
+        providerMetadata: event.providerMetadata ?? current.providerMetadata,
+      },
+    },
+  }
+}
+
+const toolCallContent = (event: ToolCall): ContentPart =>
+  ToolCallPart.make({
+    id: event.id,
+    name: event.name,
+    input: event.input,
+    ...(event.providerExecuted === undefined ? {} : { providerExecuted: event.providerExecuted }),
+    ...(event.providerMetadata === undefined ? {} : { providerMetadata: event.providerMetadata }),
+  })
+
+const toolResultContent = (event: ToolResult): ContentPart =>
+  ToolResultPart.make({
+    id: event.id,
+    name: event.name,
+    result: event.result,
+    ...(event.providerExecuted === undefined ? {} : { providerExecuted: event.providerExecuted }),
+    ...(event.providerMetadata === undefined ? {} : { providerMetadata: event.providerMetadata }),
+  })
+
+const reduceToolCall = (state: ResponseState, event: ToolCall): ResponseState => {
+  const { [event.id]: _finished, ...toolInputs } = state.toolInputs
+  return { ...appendContent(state, toolCallContent(event)), toolInputs }
+}
+
+const reduceResponseState = (state: ResponseState, event: LLMEvent): ResponseState => {
+  const next = appendEvent(state, event)
+  switch (event.type) {
+    case "text-start":
+      return ensureText(next, event.id, event.providerMetadata)
+    case "text-delta":
+      return reduceTextDelta(next, event)
+    case "text-end":
+      return reduceTextEnd(next, event)
+    case "reasoning-start":
+      return ensureReasoning(next, event.id, event.providerMetadata)
+    case "reasoning-delta":
+      return reduceReasoningDelta(next, event)
+    case "reasoning-end":
+      return reduceReasoningEnd(next, event)
+    case "tool-input-start":
+      return reduceToolInputStart(next, event)
+    case "tool-input-delta":
+      return reduceToolInputDelta(next, event)
+    case "tool-input-end":
+      return reduceToolInputEnd(next, event)
+    case "tool-call":
+      return reduceToolCall(next, event)
+    case "tool-result":
+      return appendContent(next, toolResultContent(event))
+    default:
+      return next
+  }
+}
+
 export class LLMResponse extends Schema.Class<LLMResponse>("LLM.Response")({
+  message: Message,
   events: Schema.Array(LLMEvent),
   usage: Schema.optional(Usage),
+  finishReason: FinishReason,
 }) {
   /** Concatenated assistant text assembled from streamed `text-delta` events. */
   get text() {
@@ -339,7 +581,28 @@ export class LLMResponse extends Schema.Class<LLMResponse>("LLM.Response")({
 }
 
 export namespace LLMResponse {
+  export type State = ResponseState
   export type Output = LLMResponse | { readonly events: ReadonlyArray<LLMEvent>; readonly usage?: Usage }
+
+  /** Initial reducer state for assembling one provider attempt. */
+  export const empty = emptyResponseState
+
+  /** Purely fold one provider-neutral event into the attempt assembly state. */
+  export const reduce = reduceResponseState
+
+  /** Return a completed response only after a terminal finish or provider error. */
+  export const complete = (state: State): LLMResponse | undefined =>
+    state.finishReason === undefined
+      ? undefined
+      : new LLMResponse({
+          message: state.message,
+          events: [...state.events],
+          usage: state.usage,
+          finishReason: state.finishReason,
+        })
+
+  /** Convenience reducer for callers that already have a collected event list. */
+  export const fromEvents = (events: ReadonlyArray<LLMEvent>) => complete(events.reduce(reduce, empty()))
 
   /** Concatenate assistant text from a response or collected event list. */
   export const text = (response: Output) => responseText(response.events)

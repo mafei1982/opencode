@@ -1,34 +1,29 @@
 #!/usr/bin/env bun
 import { $ } from "bun"
-import { existsSync, copyFileSync, unlinkSync } from "node:fs"
+import { copyFileSync, existsSync, unlinkSync } from "node:fs"
 
 import { resolveChannel } from "./utils"
 
 const channel = resolveChannel()
-const truthy = new Set(["1", "true", "yes", "on"])
-const addLlamaCppServer = truthy.has((process.env.add_llama_cpp_server ?? process.env.ADD_LLAMA_CPP_SERVER ?? "").trim().toLowerCase())
+const addLlamaCppServer = ["1", "true", "yes", "on"].includes(
+  (process.env.add_llama_cpp_server ?? process.env.ADD_LLAMA_CPP_SERVER ?? "").trim().toLowerCase(),
+)
 await $`bun ./scripts/copy-icons.ts ${channel}`
+await $`bun ./scripts/copy-metainfo.ts ${channel}`
 console.log(
   addLlamaCppServer
     ? "Bundling llama.cpp server into desktop resources."
     : "Skipping bundled llama.cpp server; local_tcp will download it on first run when needed.",
 )
 
-// Copy LLM env file into resources/ so the desktop app auto-starts with
-// local LLM configuration. Prefer an explicit override, then local llm.env,
-// then a local .env file.
 const llmEnvFile = process.env.LLM_ENV_FILE || (existsSync("llm.env") ? "llm.env" : existsSync(".env") ? ".env" : "")
 const llmEnvDest = "resources/llm.env"
 if (llmEnvFile) {
-  if (!existsSync(llmEnvFile)) {
-    console.error(`LLM_ENV_FILE not found: ${llmEnvFile}`)
-    process.exit(1)
-  }
+  if (!existsSync(llmEnvFile)) throw new Error(`LLM_ENV_FILE not found: ${llmEnvFile}`)
   copyFileSync(llmEnvFile, llmEnvDest)
   console.log(`Bundled LLM config: ${llmEnvFile} → ${llmEnvDest}`)
-} else {
-  // Clean up any leftover from previous builds
-  if (existsSync(llmEnvDest)) unlinkSync(llmEnvDest)
+} else if (existsSync(llmEnvDest)) {
+  unlinkSync(llmEnvDest)
 }
 
 await $`cd ../opencode && bun script/build-node.ts`

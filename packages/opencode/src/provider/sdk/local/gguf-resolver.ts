@@ -11,9 +11,6 @@
 
 import fs from "fs"
 import path from "path"
-import * as Log from "@opencode-ai/core/util/log"
-
-const log = Log.create({ service: "gguf-resolver" })
 
 export function getDefaultModelDir(): string {
   return path.resolve("models")
@@ -67,7 +64,7 @@ export function resolveLocalGgufPath(model: string): string | undefined {
   const modelDir = process.env.LLM_MODEL_DIR || getDefaultModelDir()
   const localPath = findInModelDir(modelDir, parsed.owner, parsed.repo, parsed.quantFilter)
   if (localPath) {
-    log.info("resolved model from local directory", { path: localPath })
+    console.info("[gguf-resolver] resolved model from local directory", { path: localPath })
     return localPath
   }
 

@@ -5,52 +5,41 @@ import { Flag } from "@opencode-ai/core/flag/flag"
 import { Global } from "@opencode-ai/core/global"
 import { unique } from "remeda"
 import * as Effect from "effect/Effect"
-import { AppFileSystem } from "@opencode-ai/core/filesystem"
-
-export const CONFIG_BASENAME = "flashcode"
-export const CONFIG_BASENAMES = [CONFIG_BASENAME] as const
-export const CONFIG_DIRECTORY = ".flashcode"
-export const CONFIG_DIRECTORIES = [CONFIG_DIRECTORY] as const
+import { FSUtil } from "@opencode-ai/core/fs-util"
 
 export const files = Effect.fn("ConfigPaths.projectFiles")(function* (
-  name: string | readonly string[],
+  name: string,
   directory: string,
   worktree?: string,
 ) {
-  const afs = yield* AppFileSystem.Service
-  const names = Array.isArray(name) ? [...name] : [name]
+  const afs = yield* FSUtil.Service
   return (yield* afs.up({
-    targets: names.flatMap((item) => [`${item}.jsonc`, `${item}.json`]),
+    targets: [`${name}.jsonc`, `${name}.json`],
     start: directory,
     stop: worktree,
   })).toReversed()
 })
 
-export function isConfigDirectory(dir: string) {
-  return CONFIG_DIRECTORIES.some((target) => dir.endsWith(target))
-}
-
 export const directories = Effect.fn("ConfigPaths.directories")(function* (directory: string, worktree?: string) {
-  const afs = yield* AppFileSystem.Service
+  const afs = yield* FSUtil.Service
   return unique([
     Global.Path.config,
-    ...(!Flag.FLASHCODE_DISABLE_PROJECT_CONFIG
+    ...(!Flag.OPENCODE_DISABLE_PROJECT_CONFIG
       ? yield* afs.up({
-          targets: [...CONFIG_DIRECTORIES],
+          targets: [".opencode"],
           start: directory,
           stop: worktree,
         })
       : []),
     ...(yield* afs.up({
-      targets: [...CONFIG_DIRECTORIES],
+      targets: [".opencode"],
       start: Global.Path.home,
       stop: Global.Path.home,
     })),
-    ...(Flag.FLASHCODE_CONFIG_DIR ? [Flag.FLASHCODE_CONFIG_DIR] : []),
+    ...(Flag.OPENCODE_CONFIG_DIR ? [Flag.OPENCODE_CONFIG_DIR] : []),
   ])
 })
 
-export function fileInDirectory(dir: string, name: string | readonly string[]) {
-  const names = Array.isArray(name) ? [...name] : [name]
-  return names.flatMap((item) => [path.join(dir, `${item}.json`), path.join(dir, `${item}.jsonc`)])
+export function fileInDirectory(dir: string, name: string) {
+  return [path.join(dir, `${name}.json`), path.join(dir, `${name}.jsonc`)]
 }

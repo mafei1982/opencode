@@ -1,12 +1,11 @@
 import { Effect } from "effect"
-import { Server } from "../../server/server"
 import { UI } from "../ui"
 import { effectCmd } from "../effect-cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag } from "@opencode-ai/core/flag/flag"
-import { isLocalTcpProviderEnabled, loadLocalTcpServer } from "../../provider/sdk/local-tcp/local-tcp-provider"
 import open from "open"
 import { networkInterfaces } from "os"
+import { isLocalTcpProviderEnabled, loadLocalTcpServer } from "../../provider/sdk/local-tcp/local-tcp-provider"
 
 function getNetworkIPs() {
   const nets = networkInterfaces()
@@ -38,17 +37,16 @@ export const WebCommand = effectCmd({
   // ambient project InstanceContext needed at startup.
   instance: false,
   handler: Effect.fn("Cli.web")(function* (args) {
-    if (!Flag.FLASHCODE_SERVER_PASSWORD) {
-      UI.println(UI.Style.TEXT_WARNING_BOLD + "!  FLASHCODE_SERVER_PASSWORD is not set; server is unsecured.")
+    const { Server } = yield* Effect.promise(() => import("../../server/server"))
+    if (!Flag.OPENCODE_SERVER_PASSWORD) {
+      UI.println(UI.Style.TEXT_WARNING_BOLD + "!  OPENCODE_SERVER_PASSWORD is not set; server is unsecured.")
     }
     const opts = yield* resolveNetworkOptions(args)
-
     if (isLocalTcpProviderEnabled()) {
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Starting local llama.cpp server (first run may download it)...")
       yield* Effect.promise(() => loadLocalTcpServer())
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Local llama.cpp server is ready.")
     }
-
     const server = yield* Effect.promise(() => Server.listen(opts))
     UI.empty()
     UI.println(UI.logo("  "))

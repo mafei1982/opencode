@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto"
-import { EventEmitter } from "node:events"
 import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs"
 import * as http from "node:http"
 import { createServer } from "node:net"
@@ -7,38 +6,44 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { getCACertificates, setDefaultCACertificates } from "node:tls"
 import type { Event } from "electron"
-import { app, BrowserWindow, dialog } from "electron"
+import { app, dialog } from "electron"
 
+import { Deferred, Effect, Fiber } from "effect"
 import contextMenu from "electron-context-menu"
 
-import type { InitStep, LlmDownloadProgress, ServerReadyData, SqliteMigrationProgress, WslConfig } from "../preload/types"
-import { checkAppExists, resolveAppPath, wslPath } from "./apps"
-import { CHANNEL, ENABLE_LICENSE_CHECK, UPDATER_ENABLED } from "./constants"
-import { registerIpcHandlers, sendDeepLinks, sendLlmDownloadProgress, sendMenuCommand, sendSqliteMigrationProgress } from "./ipc"
+import type { ServerReadyData } from "../preload/types"
+import { checkAppExists, resolveAppPath } from "./apps"
+import { CHANNEL, ENABLE_LICENSE_CHECK } from "./constants"
+import { registerIpcHandlers, sendDeepLinks, sendMenuCommand } from "./ipc"
+import { forwardInitializationFailure } from "./initialization"
+import { exportDebugLogs, initCrashReporter, initLogging, startNetLog, write as writeLog } from "./logging"
 import { checkDesktopLicense, describeLicenseFailure, LICENSE_STATUS } from "./license"
-import { initLogging } from "./logging"
 import { getDesktopEnvConfig, loadBundledEnv } from "./llm-config"
 import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
+import { finishFirstLaunchOnboarding, isFirstLaunchOnboardingPending } from "./onboarding"
 import {
   getDefaultServerUrl,
-  getWslConfig,
   preferAppEnv,
   setDefaultServerUrl,
-  setWslConfig,
   spawnLocalServer,
   type SidecarListener,
 } from "./server"
+import { setupAutoUpdater, showUpdaterDialog } from "./updater"
 import {
-  createLoadingWindow,
-  createMainWindow,
+  getLastFocusedWindow,
   registerRendererProtocol,
+  setRelaunchHandler,
+  setAppQuitting,
   setBackgroundColor,
   setDockIcon,
+  restoreMainWindows,
 } from "./windows"
+import { createWslServersController } from "./wsl/servers"
+import { registerWslIpcHandlers } from "./wsl/ipc"
+import { spawnWslSidecar } from "./wsl/sidecar"
 import { migrate } from "./migrate"
-import { checkUpdate, checkForUpdates, installUpdate, setupAutoUpdater } from "./updater"
-import { Cause, Deferred, Effect, Exit, Fiber } from "effect"
+import { cleanupStoreFiles } from "./store-cleanup"
 
 const APP_NAMES: Record<string, string> = {
   dev: "FlashCode Dev",
@@ -56,22 +61,16 @@ const LEGACY_APP_IDS: Record<string, string> = {
   prod: "com.ni.cic-code.desktop",
 }
 const DEEP_LINK_SCHEMES = ["flashcode", "ni-cic-code", "opencode"] as const
-const TEST_ONBOARDING = process.env.FLASHCODE_TEST_ONBOARDING === "1"
+const TEST_ONBOARDING = (process.env.FLASHCODE_TEST_ONBOARDING ?? process.env.OPENCODE_TEST_ONBOARDING) === "1"
+const jsCallStackFeature = "DocumentPolicyIncludeJSCallStacksInCrashReports"
 
 let logger: ReturnType<typeof initLogging>
-let mainWindow: BrowserWindow | null = null
 let server: SidecarListener | null = null
-
-const initEmitter = new EventEmitter()
-let initStep: InitStep = { phase: "server_waiting" }
 
 const pendingDeepLinks: string[] = []
 
 function migrateLegacyUserDataPath(target: string, legacy: string) {
-  if (target === legacy) return target
-  if (existsSync(target)) return target
-  if (!existsSync(legacy)) return target
-
+  if (target === legacy || existsSync(target) || !existsSync(legacy)) return target
   try {
     renameSync(legacy, target)
     return target
@@ -96,13 +95,8 @@ function useEnvProxy() {
 function emitDeepLinks(urls: string[]) {
   if (urls.length === 0) return
   pendingDeepLinks.push(...urls)
-  if (mainWindow) sendDeepLinks(mainWindow, urls)
-}
-
-function setInitStep(step: InitStep) {
-  initStep = step
-  logger.log("init step", { step })
-  initEmitter.emit("step", step)
+  const win = getLastFocusedWindow()
+  if (win) sendDeepLinks(win, urls)
 }
 
 async function killSidecar() {
@@ -140,10 +134,11 @@ const main = Effect.gen(function* () {
     process.chdir(homedir())
   } catch {}
 
+  process.env.OPENCODE_DISABLE_EMBEDDED_WEB_UI = "true"
   process.env.FLASHCODE_DISABLE_EMBEDDED_WEB_UI = "true"
   loadBundledEnv()
 
-  const appId = app.isPackaged ? APP_IDS[CHANNEL] : "ai.flashcode.desktop.dev"
+  const appId = app.isPackaged ? APP_IDS[CHANNEL] : "com.flashcode.desktop.dev"
   const onboardingTestRoot = ((): string | undefined => {
     if (!TEST_ONBOARDING) return
 
@@ -152,6 +147,7 @@ const main = Effect.gen(function* () {
     ;["data", "config", "cache", "state", "desktop", "session"].forEach((dir) =>
       mkdirSync(join(root, dir), { recursive: true }),
     )
+    process.env.OPENCODE_DB = ":memory:"
     process.env.FLASHCODE_DB = ":memory:"
     process.env.XDG_DATA_HOME = join(root, "data")
     process.env.XDG_CONFIG_HOME = join(root, "config")
@@ -159,17 +155,47 @@ const main = Effect.gen(function* () {
     process.env.XDG_STATE_HOME = join(root, "state")
     return root
   })()
-  const userDataPath = onboardingTestRoot
-    ? join(onboardingTestRoot, "desktop")
-    : app.isPackaged
-      ? migrateLegacyUserDataPath(join(app.getPath("appData"), appId), join(app.getPath("appData"), LEGACY_APP_IDS[CHANNEL]))
-      : join(app.getPath("appData"), appId)
-
   app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "FlashCode Dev")
   app.setAppUserModelId(appId)
-  app.setPath("userData", userDataPath)
+  app.setPath(
+    "userData",
+    onboardingTestRoot
+      ? join(onboardingTestRoot, "desktop")
+      : migrateLegacyUserDataPath(
+          join(app.getPath("appData"), appId),
+          join(app.getPath("appData"), LEGACY_APP_IDS[CHANNEL]),
+        ),
+  )
   if (onboardingTestRoot) app.setPath("sessionData", join(onboardingTestRoot, "session"))
   logger = initLogging()
+  initCrashReporter()
+
+  const wslServers = createWslServersController(
+    app.getVersion(),
+    async (distro) => {
+      logger.log("spawning wsl sidecar", { distro })
+      return spawnWslSidecar(distro, {
+        onLine: (line) => logger.log("wsl sidecar", { distro, stream: line.stream, text: line.text }),
+      })
+    },
+    {
+      logger: {
+        log: (message, meta) => logger.log(message, meta),
+        error: (message, meta) => logger.error(message, meta),
+      },
+    },
+  )
+  const stopSidecars = async () => {
+    await killSidecar()
+    wslServers.stopAll()
+  }
+  const relaunch = () => {
+    setAppQuitting()
+    void stopSidecars().finally(() => {
+      app.relaunch()
+      app.exit(0)
+    })
+  }
 
   try {
     setDefaultCACertificates([...new Set([...getCACertificates("default"), ...getCACertificates("system")])])
@@ -186,6 +212,8 @@ const main = Effect.gen(function* () {
   ensureLoopbackNoProxy()
   useEnvProxy()
   app.commandLine.appendSwitch("proxy-bypass-list", "<-loopback>")
+  const features = app.commandLine.getSwitchValue("enable-features")
+  app.commandLine.appendSwitch("enable-features", features ? `${jsCallStackFeature},${features}` : jsCallStackFeature)
   if (!app.isPackaged) app.commandLine.appendSwitch("remote-debugging-port", "9222")
 
   if (!app.requestSingleInstanceLock()) {
@@ -196,14 +224,15 @@ const main = Effect.gen(function* () {
   preferAppEnv(app.getPath("userData"))
 
   app.on("second-instance", (_event: Event, argv: string[]) => {
-    const urls = argv.filter((arg: string) => isDeepLinkUrl(arg))
+    const urls = argv.filter(isDeepLinkUrl)
     if (urls.length) {
       logger.log("deep link received via second-instance", { urls })
       emitDeepLinks(urls)
     }
-    if (mainWindow) {
-      mainWindow.show()
-      mainWindow.focus()
+    const win = getLastFocusedWindow()
+    if (win) {
+      win.show()
+      win.focus()
     }
   })
 
@@ -214,98 +243,110 @@ const main = Effect.gen(function* () {
   })
 
   app.on("before-quit", () => {
-    void killSidecar()
+    setAppQuitting()
+    void stopSidecars()
   })
 
   app.on("will-quit", () => {
-    void killSidecar()
+    setAppQuitting()
+    void stopSidecars()
+  })
+
+  app.on("child-process-gone", (_event, details) => {
+    writeLog("utility", "child process gone", { details }, "error")
+  })
+
+  app.on("render-process-gone", (_event, webContents, details) => {
+    writeLog("window", "app render process gone", { url: webContents.getURL(), details }, "error")
+  })
+
+  setRelaunchHandler(() => {
+    relaunch()
   })
 
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => {
-      void killSidecar().finally(() => app.exit(0))
+      setAppQuitting()
+      void stopSidecars().finally(() => app.exit(0))
     })
   }
 
   const serverReady = Deferred.makeUnsafe<ServerReadyData, unknown>()
-  const loadingComplete = Deferred.makeUnsafe<void>()
-
-  registerIpcHandlers({
-    killSidecar: () => killSidecar(),
-    awaitInitialization: Effect.fnUntraced(
-      function* (sendStep) {
-        sendStep(initStep)
-        const listener = (step: InitStep) => sendStep(step)
-        initEmitter.on("step", listener)
-        try {
-          logger.log("awaiting server ready")
-          const res = yield* Deferred.await(serverReady)
-          logger.log("server ready", { url: res.url })
-          return res
-        } finally {
-          initEmitter.off("step", listener)
-        }
-      },
-      (e) => Effect.runPromise(e),
-    ),
-    getWindowConfig: () => ({ updaterEnabled: UPDATER_ENABLED, ...getDesktopEnvConfig() }),
-    consumeInitialDeepLinks: () => pendingDeepLinks.splice(0),
-    getDefaultServerUrl: () => getDefaultServerUrl(),
-    setDefaultServerUrl: (url) => setDefaultServerUrl(url),
-    getWslConfig: () => Promise.resolve(getWslConfig()),
-    setWslConfig: (config: WslConfig) => setWslConfig(config),
-    getDisplayBackend: async () => null,
-    setDisplayBackend: async () => undefined,
-    parseMarkdown: async (markdown) => parseMarkdown(markdown),
-    checkAppExists: (appName) => checkAppExists(appName),
-    wslPath: async (path, mode) => wslPath(path, mode),
-    resolveAppPath: async (appName) => resolveAppPath(appName),
-    loadingWindowComplete: () => {
-      logger.log("loading window complete")
-      Deferred.doneUnsafe(loadingComplete, Effect.void)
-    },
-    runUpdater: async (alertOnFail) => checkForUpdates(alertOnFail, killSidecar),
-    checkUpdate: async () => checkUpdate(),
-    installUpdate: async () => installUpdate(killSidecar),
-    setBackgroundColor: (color) => setBackgroundColor(color),
-  })
 
   yield* Effect.promise(() => app.whenReady())
 
   if (app.isPackaged && ENABLE_LICENSE_CHECK) {
-    const licenseResult = checkDesktopLicense({ exePath: app.getPath("exe") })
-    if (licenseResult.code !== LICENSE_STATUS.PASS) {
-      logger.error("license check failed", licenseResult)
-      dialog.showErrorBox("License Error", describeLicenseFailure(licenseResult))
+    const license = checkDesktopLicense({ exePath: app.getPath("exe") })
+    if (license.code !== LICENSE_STATUS.PASS) {
+      logger.error("license check failed", license)
+      dialog.showErrorBox("License Error", describeLicenseFailure(license))
       app.exit(1)
       return
     }
-
-    logger.log("license check passed", { path: licenseResult.path })
+    logger.log("license check passed", { path: license.path })
   }
 
-  if (app.isPackaged && !ENABLE_LICENSE_CHECK) {
-    logger.log("license check disabled")
-  }
+  if (app.isPackaged && !ENABLE_LICENSE_CHECK) logger.log("license check disabled")
 
   if (!TEST_ONBOARDING) migrate()
-  for (const scheme of DEEP_LINK_SCHEMES) {
-    app.setAsDefaultProtocolClient(scheme)
-  }
+  yield* Effect.promise(() => cleanupStoreFiles(app.getPath("userData"))).pipe(
+    Effect.tap((result) =>
+      Effect.sync(() => {
+        if (result.deleted.length === 0) return
+        logger.log("cleaned scoped store files", { count: result.deleted.length, scanned: result.scanned })
+      }),
+    ),
+    Effect.catch((error) =>
+      Effect.sync(() => {
+        logger.warn("failed to clean scoped store files", error)
+      }),
+    ),
+  )
+  DEEP_LINK_SCHEMES.forEach((scheme) => app.setAsDefaultProtocolClient(scheme))
   registerRendererProtocol()
   setDockIcon()
-  setupAutoUpdater()
-
-  const needsMigration = ((): boolean => {
-    if (process.env.FLASHCODE_DB === ":memory:") return false
-
-    const xdg = process.env.XDG_DATA_HOME
-    const base = xdg && xdg.length > 0 ? xdg : join(homedir(), ".local", "share")
-    return ![join(base, "flashcode", "opencode.db"), join(base, "ni-cic-code", "opencode.db")].some((candidate) =>
-      existsSync(candidate),
-    )
-  })()
-  let overlay: BrowserWindow | null = null
+  const updater = setupAutoUpdater(stopSidecars)
+  registerIpcHandlers({
+    killSidecar: () => killSidecar(),
+    relaunch,
+    awaitInitialization: Effect.fnUntraced(
+      function* () {
+        logger.log("awaiting server ready")
+        const res = yield* Deferred.await(serverReady)
+        logger.log("server ready", { url: res.url })
+        return res
+      },
+      (e) => Effect.runPromise(e),
+    ),
+    getWindowConfig: () => getDesktopEnvConfig(),
+    consumeInitialDeepLinks: () => pendingDeepLinks.splice(0),
+    getDefaultServerUrl: () => getDefaultServerUrl(),
+    setDefaultServerUrl: (url) => setDefaultServerUrl(url),
+    isFirstLaunchOnboardingPending,
+    finishFirstLaunchOnboarding,
+    getDisplayBackend: async () => null,
+    setDisplayBackend: async () => undefined,
+    parseMarkdown: async (markdown) => parseMarkdown(markdown),
+    checkAppExists: (appName) => checkAppExists(appName),
+    resolveAppPath: async (appName) => resolveAppPath(appName),
+    updater,
+    showUpdater: () => showUpdaterDialog(updater, true),
+    setBackgroundColor: (color) => setBackgroundColor(color),
+    exportDebugLogs: () => exportDebugLogs(),
+    recordFatalRendererError: (error) => writeLog("renderer", "fatal renderer error", { ...error }, "error"),
+  })
+  registerWslIpcHandlers(wslServers)
+  void updater.start()
+  const updateTimer = setInterval(() => void updater.check(), 10 * 60 * 1000)
+  updateTimer.unref()
+  app.once("will-quit", () => clearInterval(updateTimer))
+  yield* Effect.promise(() => startNetLog()).pipe(
+    Effect.catch((error) =>
+      Effect.sync(() => {
+        logger.warn("failed to start net log", error)
+      }),
+    ),
+  )
 
   const port = yield* Effect.gen(function* () {
     const fromEnv = process.env.OPENCODE_PORT
@@ -337,40 +378,17 @@ const main = Effect.gen(function* () {
   const loadingTask = yield* Effect.gen(function* () {
     logger.log("sidecar connection started", { url })
 
-    initEmitter.on("sqlite", (progress: SqliteMigrationProgress) => {
-      setInitStep({ phase: "sqlite_waiting" })
-      if (overlay) sendSqliteMigrationProgress(overlay, progress)
-      if (mainWindow) sendSqliteMigrationProgress(mainWindow, progress)
-    })
-
-    initEmitter.on("llm", (progress: LlmDownloadProgress) => {
-      if (progress.type === "InProgress") setInitStep({ phase: "llm_downloading" })
-      if (progress.type === "Done") setInitStep({ phase: "done" })
-      if (progress.type === "Error") setInitStep({ phase: "done" })
-      if (overlay) sendLlmDownloadProgress(overlay, progress)
-      if (mainWindow) sendLlmDownloadProgress(mainWindow, progress)
-    })
+    ensureLoopbackNoProxy()
+    useEnvProxy()
 
     logger.log("spawning sidecar", { url })
     const { listener, health } = yield* Effect.promise(() =>
-      spawnLocalServer(
-        hostname,
-        port,
-        password,
-        () => {
-          ensureLoopbackNoProxy()
-          useEnvProxy()
-        },
-        {
-          needsMigration,
-          userDataPath: app.getPath("userData"),
-          onSqliteProgress: (progress) => initEmitter.emit("sqlite", progress),
-          onLlmProgress: (progress) => initEmitter.emit("llm", progress),
-          onStdout: (message) => logger.log("sidecar stdout", { message }),
-          onStderr: (message) => logger.warn("sidecar stderr", { message }),
-          onExit: (code) => logger.warn("sidecar exited", { code }),
-        },
-      ),
+      spawnLocalServer(hostname, port, password, {
+        userDataPath: app.getPath("userData"),
+        onStdout: (message) => writeLog("server", "stdout", { message }),
+        onStderr: (message) => writeLog("server", "stderr", { message }, "warn"),
+        onExit: (code) => writeLog("utility", "sidecar exited", { code }, "warn"),
+      }),
     )
     server = listener
     yield* Deferred.succeed(serverReady, {
@@ -378,6 +396,10 @@ const main = Effect.gen(function* () {
       username: "opencode",
       password,
     })
+
+    if (process.platform === "win32") {
+      void wslServers.initialize().catch((error) => logger.error("wsl server initialization failed", error))
+    }
 
     yield* Effect.promise(() => health.wait).pipe(
       Effect.timeout("30 seconds"),
@@ -389,60 +411,25 @@ const main = Effect.gen(function* () {
     )
 
     logger.log("loading task finished")
-  }).pipe(Effect.forkChild)
+  }).pipe(forwardInitializationFailure(serverReady), Effect.forkChild)
 
-  {
-    const show = yield* loadingTask.pipe(
-      Fiber.await,
-      Effect.timeout("1 second"),
-      Effect.as(false),
-      Effect.catch(() => Effect.succeed(true)),
-    )
-    if (show) {
-      overlay = createLoadingWindow()
-      yield* Effect.sleep("1 second")
-    }
-  }
+  yield* Fiber.await(loadingTask)
 
-  const loadingExit = yield* Fiber.await(loadingTask)
-  if (Exit.isFailure(loadingExit)) {
-    logger.error("loading task failed", Cause.pretty(loadingExit.cause))
-    if (!(yield* Deferred.isDone(serverReady))) {
-      yield* Deferred.fail(serverReady, Cause.squash(loadingExit.cause))
-    }
-  }
-  setInitStep({ phase: "done" })
-
-  if (overlay) {
-    yield* Deferred.await(loadingComplete).pipe(
-      Effect.timeout("5 seconds"),
-      Effect.catch(() =>
-        Effect.sync(() => {
-          logger.warn("loading window completion timed out; continuing startup")
-        }),
-      ),
-    )
-  }
-
-  mainWindow = createMainWindow()
-  if (mainWindow) {
+  const windows = restoreMainWindows()
+  if (windows.length) {
     createMenu({
-      trigger: (id) => mainWindow && sendMenuCommand(mainWindow, id),
+      trigger: (id) => {
+        const win = getLastFocusedWindow()
+        if (win) sendMenuCommand(win, id)
+      },
       checkForUpdates: () => {
-        void checkForUpdates(true, killSidecar)
+        void showUpdaterDialog(updater, true)
       },
-      reload: () => mainWindow?.reload(),
       relaunch: () => {
-        void killSidecar().finally(() => {
-          app.relaunch()
-          app.exit(0)
-        })
+        relaunch()
       },
-      showSettings: getDesktopEnvConfig().showSettings,
     })
   }
-
-  overlay?.close()
 })
 
 Effect.runFork(main)

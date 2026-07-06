@@ -1,20 +1,20 @@
-import { afterAll, afterEach, describe, test, expect } from "bun:test"
+import { afterEach, describe, expect } from "bun:test"
 import path from "path"
 import fs from "fs/promises"
-import { Cause, Deferred, Effect, Exit, Layer, ManagedRuntime } from "effect"
+import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { Cause, Deferred, Effect, Exit, Fiber, Layer } from "effect"
 import { EditTool } from "../../src/tool/edit"
-import { WithInstance } from "../../src/project/with-instance"
-import { disposeAllInstances, TestInstance, tmpdir } from "../fixture/fixture"
+import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { LSP } from "@/lsp/lsp"
-import { AppFileSystem } from "@opencode-ai/core/filesystem"
+import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Format } from "../../src/format"
 import { Agent } from "../../src/agent/agent"
-import { Bus } from "../../src/bus"
+import { EventV2Bridge } from "../../src/event-v2-bridge"
 import { Truncate } from "@/tool/truncate"
 import { SessionID, MessageID } from "../../src/session/schema"
 import * as Tool from "../../src/tool/tool"
 import { testEffect } from "../lib/effect"
-import { FileWatcher } from "../../src/file/watcher"
+import { Watcher } from "@opencode-ai/core/filesystem/watcher"
 
 const ctx = {
   sessionID: SessionID.make("ses_test-edit-session"),
@@ -31,30 +31,11 @@ afterEach(async () => {
   await disposeAllInstances()
 })
 
-const layer = Layer.mergeAll(
-  LSP.defaultLayer,
-  AppFileSystem.defaultLayer,
-  Format.defaultLayer,
-  Bus.layer,
-  Truncate.defaultLayer,
-  Agent.defaultLayer,
+const layer = LayerNode.compile(
+  LayerNode.group([LSP.node, FSUtil.node, Format.node, EventV2Bridge.node, Truncate.node, Agent.node]),
 )
 
 const it = testEffect(layer)
-
-const runtime = ManagedRuntime.make(layer)
-
-afterAll(async () => {
-  await runtime.dispose()
-})
-
-const resolve = () =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const info = yield* EditTool
-      return yield* info.init()
-    }),
-  )
 
 const init = Effect.fn("EditToolTest.init")(function* () {
   const info = yield* EditTool
@@ -79,12 +60,12 @@ const fail = Effect.fn("EditToolTest.fail")(function* (args: Tool.InferParameter
 })
 
 const put = Effect.fn("EditToolTest.put")(function* (p: string, content: string) {
-  const fs = yield* AppFileSystem.Service
+  const fs = yield* FSUtil.Service
   yield* fs.writeWithDirs(p, content)
 })
 
 const load = Effect.fn("EditToolTest.load")(function* (p: string) {
-  const fs = yield* AppFileSystem.Service
+  const fs = yield* FSUtil.Service
   return yield* fs.readFileString(p)
 })
 
@@ -93,15 +74,18 @@ const loadRaw = Effect.fn("EditToolTest.loadRaw")(function* (p: string) {
 })
 
 const makeDirectory = Effect.fn("EditToolTest.makeDirectory")(function* (p: string) {
-  const fs = yield* AppFileSystem.Service
+  const fs = yield* FSUtil.Service
   yield* fs.makeDirectory(p)
 })
 
-const onceBus = Effect.fn("EditToolTest.onceBus")(function* (def: typeof FileWatcher.Event.Updated) {
-  const bus = yield* Bus.Service
+const onceBus = Effect.fn("EditToolTest.onceBus")(function* (def: typeof Watcher.Event.Updated) {
+  const events = yield* EventV2Bridge.Service
   const deferred = yield* Deferred.make<void>()
-  const unsub = yield* bus.subscribeCallback(def, () => Effect.runSync(Deferred.succeed(deferred, undefined)))
-  yield* Effect.addFinalizer(() => Effect.sync(unsub))
+  const unsub = yield* events.listen((event) => {
+    if (event.type === def.type) Deferred.doneUnsafe(deferred, Effect.void)
+    return Effect.void
+  })
+  yield* Effect.addFinalizer(() => unsub)
   return deferred
 })
 
@@ -118,21 +102,20 @@ describe("tool.edit", () => {
       }),
     )
 
-    it.instance("preserves BOM when oldString is empty on existing files", () =>
+    it.instance("rejects empty oldString on existing files and leaves content unchanged", () =>
       Effect.gen(function* () {
         const test = yield* TestInstance
         const filepath = path.join(test.directory, "existing.cs")
         const bom = String.fromCharCode(0xfeff)
-        yield* put(filepath, `${bom}using System;\n`)
+        const original = `${bom}using System;\n`
+        yield* put(filepath, original)
 
-        const result = yield* run({ filePath: filepath, oldString: "", newString: "using Up;\n" })
-
-        expect(result.metadata.diff).toContain("-using System;")
-        expect(result.metadata.diff).toContain("+using Up;")
+        expect((yield* fail({ filePath: filepath, oldString: "", newString: "using Up;\n" })).message).toContain(
+          "oldString cannot be empty",
+        )
 
         const content = yield* loadRaw(filepath)
-        expect(content.charCodeAt(0)).toBe(0xfeff)
-        expect(content.slice(1)).toBe("using Up;\n")
+        expect(content).toBe(original)
       }),
     )
 
@@ -150,7 +133,7 @@ describe("tool.edit", () => {
     it.instance("emits add event for new files", () =>
       Effect.gen(function* () {
         const test = yield* TestInstance
-        const updated = yield* onceBus(FileWatcher.Event.Updated)
+        const updated = yield* onceBus(Watcher.Event.Updated)
 
         yield* run({ filePath: path.join(test.directory, "new.txt"), oldString: "", newString: "content" })
         yield* Deferred.await(updated)
@@ -225,6 +208,49 @@ describe("tool.edit", () => {
       }),
     )
 
+    it.instance("rejects loose block-anchor matches and leaves content unchanged", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const filepath = path.join(test.directory, "file.ts")
+        const original = [
+          "function configure() {",
+          "  keepImportantState()",
+          "  removeAllUserData()",
+          "  archiveBackups()",
+          "  auditLog()",
+          "}",
+        ].join("\n")
+        yield* put(filepath, original)
+
+        expect(
+          (yield* fail({
+            filePath: filepath,
+            oldString: ["function configure() {", "  const enabled = true", "}"].join("\n"),
+            newString: ["function configure() {", "  const enabled = false", "}"].join("\n"),
+          })).message,
+        ).toContain("Could not find oldString")
+        expect(yield* load(filepath)).toBe(original)
+      }),
+    )
+
+    it.instance("rejects block-anchor matches with unrelated middle content", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const filepath = path.join(test.directory, "file.ts")
+        const original = ["function configure() {", "  removeAllUserData()", "}"].join("\n")
+        yield* put(filepath, original)
+
+        expect(
+          (yield* fail({
+            filePath: filepath,
+            oldString: ["function configure() {", "  const enabled = true", "}"].join("\n"),
+            newString: ["function configure() {", "  const enabled = false", "}"].join("\n"),
+          })).message,
+        ).toContain("Could not find oldString")
+        expect(yield* load(filepath)).toBe(original)
+      }),
+    )
+
     it.instance("replaces all occurrences with replaceAll option", () =>
       Effect.gen(function* () {
         const test = yield* TestInstance
@@ -242,7 +268,7 @@ describe("tool.edit", () => {
         const test = yield* TestInstance
         const filepath = path.join(test.directory, "file.txt")
         yield* put(filepath, "original")
-        const updated = yield* onceBus(FileWatcher.Event.Updated)
+        const updated = yield* onceBus(Watcher.Event.Updated)
 
         yield* run({ filePath: filepath, oldString: "original", newString: "modified" })
         yield* Deferred.await(updated)
@@ -500,58 +526,49 @@ describe("tool.edit", () => {
   })
 
   describe("concurrent editing", () => {
-    test("preserves concurrent edits to different sections of the same file", async () => {
-      await using tmp = await tmpdir()
-      const filepath = path.join(tmp.path, "file.txt")
-      await fs.writeFile(filepath, "top = 0\nmiddle = keep\nbottom = 0\n", "utf-8")
+    it.instance("preserves concurrent edits to different sections of the same file", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const filepath = path.join(test.directory, "file.txt")
+        yield* put(filepath, "top = 0\nmiddle = keep\nbottom = 0\n")
 
-      await WithInstance.provide({
-        directory: tmp.path,
-        fn: async () => {
-          const edit = await resolve()
-          let asks = 0
-          const firstAsk = Promise.withResolvers<void>()
-          const delayedCtx = {
-            ...ctx,
-            ask: () =>
-              Effect.gen(function* () {
-                asks++
-                if (asks !== 1) return
-                firstAsk.resolve()
-                yield* Effect.promise(() => Bun.sleep(50))
-              }),
-          }
+        const firstAsk = yield* Deferred.make<void>()
+        let asks = 0
+        const delayedCtx = {
+          ...ctx,
+          ask: () =>
+            Effect.gen(function* () {
+              asks++
+              if (asks !== 1) return
+              yield* Deferred.succeed(firstAsk, undefined)
+              yield* Effect.sleep("50 millis")
+            }),
+        }
 
-          const promise1 = Effect.runPromise(
-            edit.execute(
-              {
-                filePath: filepath,
-                oldString: "top = 0",
-                newString: "top = 1",
-              },
-              delayedCtx,
-            ),
-          )
+        const first = yield* run(
+          {
+            filePath: filepath,
+            oldString: "top = 0",
+            newString: "top = 1",
+          },
+          delayedCtx,
+        ).pipe(Effect.forkScoped)
 
-          await firstAsk.promise
+        yield* Deferred.await(firstAsk)
+        yield* Effect.all([
+          Fiber.join(first),
+          run(
+            {
+              filePath: filepath,
+              oldString: "bottom = 0",
+              newString: "bottom = 2",
+            },
+            delayedCtx,
+          ),
+        ])
 
-          const promise2 = Effect.runPromise(
-            edit.execute(
-              {
-                filePath: filepath,
-                oldString: "bottom = 0",
-                newString: "bottom = 2",
-              },
-              delayedCtx,
-            ),
-          )
-
-          const results = await Promise.allSettled([promise1, promise2])
-          expect(results[0]?.status).toBe("fulfilled")
-          expect(results[1]?.status).toBe("fulfilled")
-          expect(await fs.readFile(filepath, "utf-8")).toBe("top = 1\nmiddle = keep\nbottom = 2\n")
-        },
-      })
-    })
+        expect(yield* load(filepath)).toBe("top = 1\nmiddle = keep\nbottom = 2\n")
+      }),
+    )
   })
 })

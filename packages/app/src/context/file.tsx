@@ -1,9 +1,10 @@
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { createSimpleContext } from "@opencode-ai/ui/context"
-import { showToast } from "@opencode-ai/ui/toast"
+import { showToast } from "@/utils/toast"
 import { useParams } from "@solidjs/router"
-import { getFilename } from "@opencode-ai/core/util/path"
+import { base64Encode } from "@opencode-ai/core/util/encode"
+import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
 import { useSDK } from "./sdk"
 import { useSync } from "./sync"
 import { useLanguage } from "@/context/language"
@@ -21,6 +22,8 @@ import {
   touchFileContent,
 } from "./file/content-cache"
 import { createFileViewCache } from "./file/view-cache"
+import { useServerSDK } from "./server-sdk"
+import { SessionRouteKey, SessionStateKey } from "@/utils/server-scope"
 import { createFileTreeStore } from "./file/tree-store"
 import { invalidateFromWatcher } from "./file/watcher"
 import {
@@ -56,12 +59,15 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const sdk = useSDK()
     useSync()
     const params = useParams()
+    const serverSDK = useServerSDK()
     const language = useLanguage()
     const layout = useLayout()
 
-    const scope = createMemo(() => sdk.directory)
+    const scope = createMemo(() => sdk().directory)
     const path = createPathHelpers(scope)
-    const tabs = layout.tabs(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+    const tabs = layout.tabs(() =>
+      SessionStateKey.from(serverSDK().scope, SessionRouteKey.fromRoute(base64Encode(sdk().directory), params.id)),
+    )
 
     const inflight = new Map<string, Promise<void>>()
     const [dirtyFiles, setDirtyFiles] = createStore<Record<string, boolean>>({})
@@ -74,7 +80,10 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const tree = createFileTreeStore({
       scope,
       normalizeDir: path.normalizeDir,
-      list: (dir) => sdk.client.file.list({ path: dir }).then((x) => x.data ?? []),
+      list: (dir) =>
+        sdk()
+          .client.file.list({ path: dir })
+          .then((x) => x.data ?? []),
       onError: (message) => {
         showToast({
           variant: "error",
@@ -108,7 +117,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       })
     })
 
-    const viewCache = createFileViewCache()
+    const viewCache = createFileViewCache(serverSDK().scope)
     const view = createMemo(() => viewCache.load(scope(), params.id))
 
     const ensure = (file: string) => {
@@ -172,8 +181,8 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
 
       setLoading(file)
 
-      const promise = sdk.client.file
-        .read({ path: file }, { cache: "no-store" })
+      const promise = sdk()
+        .client.file.read({ path: file }, { cache: "no-store" })
         .then((x) => {
           if (scope() !== directory) return
           const content = x.data
@@ -196,12 +205,14 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     }
 
     const search = (query: string, dirs: "true" | "false") =>
-      sdk.client.find.files({ query, dirs }).then(
-        (x) => (x.data ?? []).map(path.normalize),
-        () => [],
-      )
+      sdk()
+        .client.find.files({ query, dirs })
+        .then(
+          (x) => (x.data ?? []).map(path.normalize),
+          () => [],
+        )
 
-    const stop = sdk.event.listen((e) => {
+    const stop = sdk().event.listen((e) => {
       invalidateFromWatcher(e.details, {
         normalize: path.normalize,
         hasFile: (file) => Boolean(store.file[file]),
@@ -287,23 +298,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       write: async (input: string, content: string) => {
         const file = path.normalize(input)
         if (!file) return
-        const params = new URLSearchParams({ path: file, directory: scope() })
-        const res = await fetch(`${sdk.url}/file/write?${params}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
-        })
-        if (!res.ok) throw new Error(`Failed to write file: ${res.statusText}`)
-        const data = await res.json()
-        setStore(
-          "file",
-          file,
-          produce((draft) => {
-            draft.loaded = true
-            draft.loading = false
-            draft.content = data
-          }),
-        )
+        setLoaded(file, (await sdk().client.file.write({ path: file, content })).data)
       },
       scrollTop,
       scrollLeft,
@@ -313,59 +308,34 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       setSelectedLines,
       searchFiles: (query: string) => search(query, "false"),
       searchFilesAndDirectories: (query: string) => search(query, "true"),
-      isDirty: (input: string) => {
-        const file = path.normalize(input)
-        return file ? dirtyFiles[file] ?? false : false
-      },
+      isDirty: (input: string) => dirtyFiles[path.normalize(input)] ?? false,
       setDirty: (input: string, dirty: boolean) => {
         const file = path.normalize(input)
         if (!file) return
         setDirtyFiles(file, dirty)
       },
       rename: async (from: string, to: string) => {
-        const fromPath = path.normalize(from)
-        const toPath = path.normalize(to)
-        if (!fromPath || !toPath) return
-        const params = new URLSearchParams({ path: fromPath, directory: scope() })
-        const res = await fetch(`${sdk.url}/file/rename?${params}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: toPath }),
-        })
-        if (!res.ok) throw new Error(`Failed to rename: ${res.statusText}`)
-        const parentSep = Math.max(fromPath.lastIndexOf("/"), fromPath.lastIndexOf("\\"))
-        const parent = parentSep === -1 ? "" : fromPath.slice(0, parentSep)
-        const toSep = Math.max(toPath.lastIndexOf("/"), toPath.lastIndexOf("\\"))
-        const toParent = toSep === -1 ? "" : toPath.slice(0, toSep)
+        const source = path.normalize(from)
+        const target = path.normalize(to)
+        if (!source || !target) return
+        await sdk().client.file.rename({ path: source, to: target })
+        const parent = path.normalizeDir(getDirectory(source))
+        const targetParent = path.normalizeDir(getDirectory(target))
         void tree.listDir(parent, { force: true })
-        if (toParent !== parent) void tree.listDir(toParent, { force: true })
+        if (targetParent !== parent) void tree.listDir(targetParent, { force: true })
       },
       remove: async (input: string) => {
         const file = path.normalize(input)
         if (!file) return
-        const params = new URLSearchParams({ path: file, directory: scope() })
-        const res = await fetch(`${sdk.url}/file/remove?${params}`, {
-          method: "DELETE",
-        })
-        if (!res.ok) throw new Error(`Failed to delete: ${res.statusText}`)
-        const sep = Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\"))
-        const parent = sep === -1 ? "" : file.slice(0, sep)
-        void tree.listDir(parent, { force: true })
+        await sdk().client.file.remove({ path: file })
+        void tree.listDir(path.normalizeDir(getDirectory(file)), { force: true })
       },
       copy: async (from: string, to: string) => {
-        const fromPath = path.normalize(from)
-        const toPath = path.normalize(to)
-        if (!fromPath || !toPath) return
-        const params = new URLSearchParams({ path: fromPath, directory: scope() })
-        const res = await fetch(`${sdk.url}/file/copy?${params}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: toPath }),
-        })
-        if (!res.ok) throw new Error(`Failed to copy: ${res.statusText}`)
-        const toSep = Math.max(toPath.lastIndexOf("/"), toPath.lastIndexOf("\\"))
-        const toParent = toSep === -1 ? "" : toPath.slice(0, toSep)
-        void tree.listDir(toParent, { force: true })
+        const source = path.normalize(from)
+        const target = path.normalize(to)
+        if (!source || !target) return
+        await sdk().client.file.copy({ path: source, to: target })
+        void tree.listDir(path.normalizeDir(getDirectory(target)), { force: true })
       },
     }
   },

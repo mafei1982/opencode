@@ -1,15 +1,36 @@
 import { describe, expect } from "bun:test"
+import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { Effect, Layer } from "effect"
 import { Skill } from "../../src/skill"
+import { Discovery } from "../../src/skill/discovery"
+import { RuntimeFlags } from "../../src/effect/runtime-flags"
+import { EventV2Bridge } from "../../src/event-v2-bridge"
+import { Config } from "../../src/config/config"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { provideInstance, provideTmpdirInstance, tmpdir } from "../fixture/fixture"
+import { FSUtil } from "@opencode-ai/core/fs-util"
+import { Global } from "@opencode-ai/core/global"
+import { provideInstance, provideTmpdirInstance, testInstanceStoreLayer, tmpdir } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import path from "path"
 import fs from "fs/promises"
 
-const node = CrossSpawnSpawner.defaultLayer
+const node = LayerNode.compile(CrossSpawnSpawner.node)
 
-const it = testEffect(Layer.mergeAll(Skill.defaultLayer, node))
+const it = testEffect(Layer.mergeAll(LayerNode.compile(Skill.node), node, testInstanceStoreLayer))
+const itWithoutClaudeCodeSkills = testEffect(
+  Layer.mergeAll(
+    LayerNode.compile(Skill.node, [[RuntimeFlags.node, RuntimeFlags.layer({ disableClaudeCodeSkills: true })]]),
+    node,
+    testInstanceStoreLayer,
+  ),
+)
+const itWithoutExternalSkills = testEffect(
+  Layer.mergeAll(
+    LayerNode.compile(Skill.node, [[RuntimeFlags.node, RuntimeFlags.layer({ disableExternalSkills: true })]]),
+    node,
+    testInstanceStoreLayer,
+  ),
+)
 
 async function createGlobalSkill(homeDir: string) {
   const skillDir = path.join(homeDir, ".claude", "skills", "global-test-skill")
@@ -43,13 +64,40 @@ const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
   )
 
 describe("skill", () => {
-  it.live("discovers skills from .flashcode/skill/ directory", () =>
+  it.effect("formats verbose locations as XML-safe filesystem paths", () =>
+    Effect.sync(() => {
+      const output = Skill.fmt(
+        [
+          {
+            name: "tagged-skill",
+            description: "A tagged skill.",
+            location: "/tmp/plugin.git#v1.3.0/SKILL.md",
+            content: "",
+          },
+          {
+            name: "built-in-skill",
+            description: "A built-in skill.",
+            location: "<built-in>",
+            content: "",
+          },
+        ],
+        { verbose: true },
+      )
+
+      expect(output).toContain("<location>/tmp/plugin.git#v1.3.0/SKILL.md</location>")
+      expect(output).toContain("<location>&lt;built-in&gt;</location>")
+      expect(output).not.toContain("file://")
+      expect(output).not.toContain("%23")
+    }),
+  )
+
+  it.live("discovers skills from .opencode/skill/ directory", () =>
     provideTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Bun.write(
-              path.join(dir, ".flashcode", "skill", "test-skill", "SKILL.md"),
+              path.join(dir, ".opencode", "skill", "test-skill", "SKILL.md"),
               `---
 name: test-skill
 description: A test skill for verification.
@@ -82,7 +130,7 @@ Instructions here.
           Effect.gen(function* () {
             yield* Effect.promise(() =>
               Bun.write(
-                path.join(dir, ".flashcode", "skill", "dir-skill", "SKILL.md"),
+                path.join(dir, ".opencode", "skill", "dir-skill", "SKILL.md"),
                 `---
 name: dir-skill
 description: Skill for dirs test.
@@ -95,7 +143,7 @@ description: Skill for dirs test.
 
             const skill = yield* Skill.Service
             const dirs = yield* skill.dirs()
-            expect(dirs).toContain(path.join(dir, ".flashcode", "skill", "dir-skill"))
+            expect(dirs).toContain(path.join(dir, ".opencode", "skill", "dir-skill"))
             expect(dirs.length).toBe(1)
           }),
         ),
@@ -103,14 +151,14 @@ description: Skill for dirs test.
     ),
   )
 
-  it.live("discovers multiple skills from .flashcode/skill/ directory", () =>
+  it.live("discovers multiple skills from .opencode/skill/ directory", () =>
     provideTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Promise.all([
               Bun.write(
-                path.join(dir, ".flashcode", "skill", "skill-one", "SKILL.md"),
+                path.join(dir, ".opencode", "skill", "skill-one", "SKILL.md"),
                 `---
 name: skill-one
 description: First test skill.
@@ -120,7 +168,7 @@ description: First test skill.
 `,
               ),
               Bun.write(
-                path.join(dir, ".flashcode", "skill", "skill-two", "SKILL.md"),
+                path.join(dir, ".opencode", "skill", "skill-two", "SKILL.md"),
                 `---
 name: skill-two
 description: Second test skill.
@@ -148,7 +196,7 @@ description: Second test skill.
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Bun.write(
-              path.join(dir, ".flashcode", "skill", "no-frontmatter", "SKILL.md"),
+              path.join(dir, ".opencode", "skill", "no-frontmatter", "SKILL.md"),
               `# No Frontmatter
 
 Just some content without YAML frontmatter.
@@ -169,7 +217,7 @@ Just some content without YAML frontmatter.
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Bun.write(
-              path.join(dir, ".flashcode", "skill", "manual-skill", "SKILL.md"),
+              path.join(dir, ".opencode", "skill", "manual-skill", "SKILL.md"),
               `---
 name: manual-skill
 ---
@@ -255,6 +303,37 @@ description: A skill in the .claude/skills directory.
         }),
       { git: true },
     ),
+  )
+
+  it.live("fails with typed error when requiring a missing skill", () =>
+    provideTmpdirInstance(
+      () =>
+        Effect.gen(function* () {
+          const skill = yield* Skill.Service
+          const error = yield* Effect.flip(skill.require("missing-skill"))
+          expect(error).toBeInstanceOf(Skill.NotFoundError)
+          expect(error._tag).toBe("Skill.NotFoundError")
+          expect(error.name).toBe("missing-skill")
+          expect(error.message).toContain('Skill "missing-skill" not found.')
+        }),
+      { git: true },
+    ),
+  )
+
+  it.effect("exposes tagged expected skill failure classes", () =>
+    Effect.sync(() => {
+      const invalid = new Skill.InvalidError({ path: "/tmp/SKILL.md", message: "Invalid skill frontmatter" })
+      const mismatch = new Skill.NameMismatchError({
+        path: "/tmp/SKILL.md",
+        expected: "expected-skill",
+        actual: "actual-skill",
+      })
+
+      expect(invalid).toBeInstanceOf(Skill.InvalidError)
+      expect(invalid._tag).toBe("SkillInvalidError")
+      expect(mismatch).toBeInstanceOf(Skill.NameMismatchError)
+      expect(mismatch._tag).toBe("SkillNameMismatchError")
+    }),
   )
 
   it.live("discovers skills from .agents/skills/ directory", () =>
@@ -364,6 +443,90 @@ description: A skill in the .agents/skills directory.
     ),
   )
 
+  itWithoutClaudeCodeSkills.live("skips Claude Code skills when disabled", () =>
+    provideTmpdirInstance(
+      (dir) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            Promise.all([
+              Bun.write(
+                path.join(dir, ".claude", "skills", "claude-skill", "SKILL.md"),
+                `---
+name: claude-skill
+description: A skill in the .claude/skills directory.
+---
+
+# Claude Skill
+`,
+              ),
+              Bun.write(
+                path.join(dir, ".agents", "skills", "agent-skill", "SKILL.md"),
+                `---
+name: agent-skill
+description: A skill in the .agents/skills directory.
+---
+
+# Agent Skill
+`,
+              ),
+            ]),
+          )
+
+          const skill = yield* Skill.Service
+          const list = (yield* skill.all()).filter((s) => s.location !== "<built-in>")
+          expect(list.map((s) => s.name)).toEqual(["agent-skill"])
+        }),
+      { git: true },
+    ),
+  )
+
+  itWithoutExternalSkills.live("skips external skill directories when disabled", () =>
+    provideTmpdirInstance(
+      (dir) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            Promise.all([
+              Bun.write(
+                path.join(dir, ".claude", "skills", "claude-skill", "SKILL.md"),
+                `---
+name: claude-skill
+description: A skill in the .claude/skills directory.
+---
+
+# Claude Skill
+`,
+              ),
+              Bun.write(
+                path.join(dir, ".agents", "skills", "agent-skill", "SKILL.md"),
+                `---
+name: agent-skill
+description: A skill in the .agents/skills directory.
+---
+
+# Agent Skill
+`,
+              ),
+              Bun.write(
+                path.join(dir, ".opencode", "skill", "opencode-skill", "SKILL.md"),
+                `---
+name: opencode-skill
+description: A skill in the .opencode/skill directory.
+---
+
+# OpenCode Skill
+`,
+              ),
+            ]),
+          )
+
+          const skill = yield* Skill.Service
+          const list = (yield* skill.all()).filter((s) => s.location !== "<built-in>")
+          expect(list.map((s) => s.name)).toEqual(["opencode-skill"])
+        }),
+      { git: true },
+    ),
+  )
+
   it.live("properly resolves directories that skills live in", () =>
     provideTmpdirInstance(
       (dir) =>
@@ -391,20 +554,20 @@ description: A skill in the .agents/skills directory.
 `,
               ),
               Bun.write(
-                path.join(dir, ".flashcode", "skill", "agent-skill", "SKILL.md"),
+                path.join(dir, ".opencode", "skill", "agent-skill", "SKILL.md"),
                 `---
 name: opencode-skill
-description: A skill in the .flashcode/skill directory.
+description: A skill in the .opencode/skill directory.
 ---
 
 # OpenCode Skill
 `,
               ),
               Bun.write(
-                path.join(dir, ".flashcode", "skills", "agent-skill", "SKILL.md"),
+                path.join(dir, ".opencode", "skills", "agent-skill", "SKILL.md"),
                 `---
 name: opencode-skill
-description: A skill in the .flashcode/skills directory.
+description: A skill in the .opencode/skills directory.
 ---
 
 # OpenCode Skill

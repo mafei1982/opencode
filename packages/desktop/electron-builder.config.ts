@@ -7,23 +7,20 @@ import { promisify } from "node:util"
 import type { Configuration } from "electron-builder"
 
 const execFileAsync = promisify(execFile)
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
+const packageDir = path.dirname(fileURLToPath(import.meta.url))
+const rootDir = path.resolve(packageDir, "../..")
 const signScript = path.join(rootDir, "script", "sign-windows.ps1")
+// The Electron 42 packaging update briefly installed Linux launchers/icons under
+// "opencode-desktop". Keep that hidden desktop entry around so existing GNOME/KDE
+// pins still resolve after the canonical app id changes back to ai.opencode.desktop.
+const legacyDesktopEntry = path.join(packageDir, "resources", "linux", "opencode-desktop.desktop")
+const legacyDesktopEntryFpm = `${legacyDesktopEntry}=/usr/share/applications/opencode-desktop.desktop`
 const deepLinkSchemes = ["flashcode", "ni-cic-code", "opencode"]
 const bundledToolsDir = process.env.FLASHCODE_TOOLS_DIR ?? process.env.NI_CIC_TOOLS_DIR
 const bundledLlamaCppServerDir = path.join(rootDir, "packages", "opencode", "dist", "node", "llama-cpp-server")
-const truthy = new Set(["1", "true", "yes", "on"])
-const falsy = new Set(["0", "false", "no", "off"])
-
-function readBuildBoolean(value: string | undefined, fallback: boolean) {
-  if (!value) return fallback
-  const normalized = value.trim().toLowerCase()
-  if (truthy.has(normalized)) return true
-  if (falsy.has(normalized)) return false
-  return fallback
-}
-
-const addLlamaCppServer = readBuildBoolean(process.env.add_llama_cpp_server ?? process.env.ADD_LLAMA_CPP_SERVER, false)
+const addLlamaCppServer = ["1", "true", "yes", "on"].includes(
+  (process.env.add_llama_cpp_server ?? process.env.ADD_LLAMA_CPP_SERVER ?? "").trim().toLowerCase(),
+)
 
 if (addLlamaCppServer && !existsSync(path.join(bundledLlamaCppServerDir, "llama-server.exe"))) {
   throw new Error("add_llama_cpp_server=true requires packages/opencode/dist/node/llama-cpp-server/llama-server.exe")
@@ -46,11 +43,25 @@ const channel = (() => {
   return "dev"
 })()
 
-const getBase = (): Configuration => ({
+const APP_IDS = {
+  dev: "com.flashcode.desktop.dev",
+  beta: "com.flashcode.desktop.beta",
+  prod: "com.flashcode.desktop",
+} as const
+
+const getBase = (appId: string): Configuration => ({
   artifactName: "flashcode-desktop-${os}-${arch}.${ext}",
   directories: {
     output: "dist",
     buildResources: "resources",
+  },
+  // Linux launchers are .desktop files, so this is the desktop file name,
+  // not just the app id. For prod, app id "ai.opencode.desktop" becomes
+  // "ai.opencode.desktop.desktop".
+  // https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html
+  // https://www.electron.build/docs/linux/
+  extraMetadata: {
+    desktopName: `${appId}.desktop`,
   },
   files: ["out/**/*", "resources/**/*"],
   extraResources: [
@@ -59,17 +70,11 @@ const getBase = (): Configuration => ({
       to: "native/",
       filter: ["index.js", "index.d.ts", "build/Release/mac_window.node", "swift-build/**"],
     },
-    {
-      from: "resources/llm.env",
-      to: "llm.env",
-      filter: ["llm.env"],
-    },
+    { from: "resources/llm.env", to: "llm.env", filter: ["llm.env"] },
     ...(addLlamaCppServer
       ? [{ from: "../opencode/dist/node/llama-cpp-server", to: "llama-cpp-server", filter: ["**/*"] }]
       : []),
-    ...(bundledToolsDir
-      ? [{ from: bundledToolsDir, to: "tools/" }]
-      : []),
+    ...(bundledToolsDir ? [{ from: bundledToolsDir, to: "tools/" }] : []),
   ],
   mac: {
     category: "public.app-category.developer-tools",
@@ -105,18 +110,27 @@ const getBase = (): Configuration => ({
   linux: {
     icon: `resources/icons`,
     category: "Development",
+    executableName: appId,
+    desktop: {
+      entry: {
+        // Match the installed .desktop file and hicolor icon basename so
+        // Linux shells can associate the running Electron window with its launcher.
+        StartupWMClass: appId,
+      },
+    },
     target: ["AppImage", "deb", "rpm"],
   },
 })
 
 function getConfig() {
-  const base = getBase()
+  const appId = APP_IDS[channel]
+  const base = getBase(appId)
 
   switch (channel) {
     case "dev": {
       return {
         ...base,
-        appId: "com.flashcode.desktop.dev",
+        appId,
         productName: "FlashCode Dev",
         rpm: { packageName: "flashcode-dev" },
       }
@@ -124,7 +138,7 @@ function getConfig() {
     case "beta": {
       return {
         ...base,
-        appId: "com.flashcode.desktop.beta",
+        appId,
         productName: "FlashCode Beta",
         protocols: { name: "FlashCode Beta", schemes: deepLinkSchemes },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
@@ -134,11 +148,12 @@ function getConfig() {
     case "prod": {
       return {
         ...base,
-        appId: "com.flashcode.desktop",
+        appId,
         productName: "FlashCode",
         protocols: { name: "FlashCode", schemes: deepLinkSchemes },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
-        rpm: { packageName: "flashcode" },
+        deb: { fpm: [legacyDesktopEntryFpm] },
+        rpm: { packageName: "flashcode", fpm: [legacyDesktopEntryFpm] },
       }
     }
   }

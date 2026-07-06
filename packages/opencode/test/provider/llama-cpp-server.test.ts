@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test"
+import * as fs from "node:fs"
+import * as fsPromises from "node:fs/promises"
 import path from "node:path"
+import { Global } from "@opencode-ai/core/global"
 
 const existingPaths = new Set<string>()
 const fetchCalls: string[] = []
@@ -11,15 +14,6 @@ function normalize(input: string) {
   return path.normalize(input)
 }
 
-void mock.module("@opencode-ai/core/global", () => ({
-  Global: {
-    Path: {
-      bin: normalize("C:/cache/bin"),
-      state: normalize("C:/cache/state"),
-    },
-  },
-}))
-
 void mock.module("@opencode-ai/core/util/flock", () => ({
   Flock: {
     withLock: mock(async (key: string, fn: () => Promise<string>) => {
@@ -30,10 +24,12 @@ void mock.module("@opencode-ai/core/util/flock", () => ({
 }))
 
 void mock.module("node:fs", () => ({
+  ...fs,
   existsSync: mock((input: string) => existingPaths.has(normalize(input))),
 }))
 
 void mock.module("node:fs/promises", () => ({
+  ...fsPromises,
   cp: mock(async (_source: string, target: string) => {
     existingPaths.add(normalize(path.join(target, "llama-server.exe")))
   }),
@@ -164,10 +160,12 @@ test("installLlamaCppServer downloads into cache before copying to the requested
   )
 
   expect(fetchCalls).toHaveLength(1)
-  expect(lockCalls[0]).toContain(normalize("C:/cache/bin/llama-cpp-server/b9878/win-cuda-12.4-x64"))
-  expect(existingPaths.has(normalize("C:/cache/bin/llama-cpp-server/b9878/win-cuda-12.4-x64/llama-server.exe"))).toBe(
-    true,
-  )
+  expect(lockCalls[0]).toContain(normalize(path.join(Global.Path.bin, "llama-cpp-server/b9878/win-cuda-12.4-x64")))
+  expect(
+    existingPaths.has(
+      normalize(path.join(Global.Path.bin, "llama-cpp-server/b9878/win-cuda-12.4-x64/llama-server.exe")),
+    ),
+  ).toBe(true)
   expect(existingPaths.has(normalize("C:/target/llama-cpp-server/llama-server.exe"))).toBe(true)
 })
 

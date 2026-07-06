@@ -3,12 +3,9 @@ export * as ConfigManaged from "./managed"
 import { existsSync } from "fs"
 import os from "os"
 import path from "path"
-import * as Log from "@opencode-ai/core/util/log"
 import { Process } from "@/util/process"
 
-const log = Log.create({ service: "config" })
-
-const MANAGED_PLIST_DOMAINS = ["com.flashcode.managed", "com.ni.cic-code.managed"] as const
+const MANAGED_PLIST_DOMAIN = "com.flashcode.managed"
 
 // Keys injected by macOS/MDM into the managed plist that are not OpenCode config
 const PLIST_META = new Set([
@@ -20,27 +17,23 @@ const PLIST_META = new Set([
   "_manualProfile",
 ])
 
-function systemManagedConfigDir(app: string): string {
+function systemManagedConfigDir(): string {
   switch (process.platform) {
     case "darwin":
-      return path.join("/Library/Application Support", app)
+      return "/Library/Application Support/flashcode"
     case "win32":
-      return path.join(process.env.ProgramData || "C:\\ProgramData", app)
+      return path.join(process.env.ProgramData || "C:\\ProgramData", "flashcode")
     default:
-      return path.join("/etc", app)
+      return "/etc/flashcode"
   }
 }
 
 export function managedConfigDir() {
-  if (process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR) return process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR
-
-  const next = systemManagedConfigDir("flashcode")
-  if (existsSync(next)) return next
-
-  const legacy = systemManagedConfigDir("ni-cic-code")
-  if (existsSync(legacy)) return legacy
-
-  return next
+  return (
+    process.env.FLASHCODE_TEST_MANAGED_CONFIG_DIR ||
+    process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR ||
+    systemManagedConfigDir()
+  )
 }
 
 export function parseManagedPlist(json: string): string {
@@ -54,20 +47,22 @@ export function parseManagedPlist(json: string): string {
 export async function readManagedPreferences() {
   if (process.platform !== "darwin") return
 
-  const user = os.userInfo().username
-  const paths = MANAGED_PLIST_DOMAINS.flatMap((domain) => [
-    path.join("/Library/Managed Preferences", user, `${domain}.plist`),
-    path.join("/Library/Managed Preferences", `${domain}.plist`),
-  ])
+  const user = (() => {
+    try {
+      return os.userInfo().username || "user"
+    } catch {
+      return "user"
+    }
+  })()
+  const paths = [
+    path.join("/Library/Managed Preferences", user, `${MANAGED_PLIST_DOMAIN}.plist`),
+    path.join("/Library/Managed Preferences", `${MANAGED_PLIST_DOMAIN}.plist`),
+  ]
 
   for (const plist of paths) {
     if (!existsSync(plist)) continue
-    log.info("reading macOS managed preferences", { path: plist })
     const result = await Process.run(["plutil", "-convert", "json", "-o", "-", plist], { nothrow: true })
-    if (result.code !== 0) {
-      log.warn("failed to convert managed preferences plist", { path: plist })
-      continue
-    }
+    if (result.code !== 0) continue
     return {
       source: `mobileconfig:${plist}`,
       text: parseManagedPlist(result.stdout.toString()),

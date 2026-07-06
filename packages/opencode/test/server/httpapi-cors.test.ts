@@ -6,20 +6,20 @@ import { HttpClient, HttpClientRequest, HttpRouter, HttpServer } from "effect/un
 import * as Socket from "effect/unstable/socket/Socket"
 import { Server } from "../../src/server/server"
 import { InstancePaths } from "../../src/server/routes/instance/httpapi/groups/instance"
-import { ExperimentalHttpApiServer } from "../../src/server/routes/instance/httpapi/server"
+import { HttpApiApp } from "../../src/server/routes/instance/httpapi/server"
 import { resetDatabase } from "../fixture/db"
 import { testEffect } from "../lib/effect"
 
 const testStateLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const original = {
-      FLASHCODE_SERVER_PASSWORD: Flag.FLASHCODE_SERVER_PASSWORD,
+      OPENCODE_SERVER_PASSWORD: Flag.OPENCODE_SERVER_PASSWORD,
     }
-    Flag.FLASHCODE_SERVER_PASSWORD = "secret"
+    Flag.OPENCODE_SERVER_PASSWORD = "secret"
     yield* Effect.promise(() => resetDatabase())
     yield* Effect.addFinalizer(() =>
       Effect.promise(async () => {
-        Flag.FLASHCODE_SERVER_PASSWORD = original.FLASHCODE_SERVER_PASSWORD
+        Flag.OPENCODE_SERVER_PASSWORD = original.OPENCODE_SERVER_PASSWORD
         await resetDatabase()
       }),
     )
@@ -27,7 +27,7 @@ const testStateLayer = Layer.effectDiscard(
 )
 
 const servedRoutes: Layer.Layer<never, Config.ConfigError, HttpServer.HttpServer> = HttpRouter.serve(
-  ExperimentalHttpApiServer.routes,
+  HttpApiApp.routes,
   { disableListenLog: true, disableLogger: true },
 )
 
@@ -63,22 +63,22 @@ describe("HttpApi CORS", () => {
   it.live("adds CORS headers to unauthorized responses", () =>
     Effect.gen(function* () {
       const handler = HttpRouter.toWebHandler(
-        ExperimentalHttpApiServer.createRoutes().pipe(
-          Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ FLASHCODE_SERVER_PASSWORD: "secret" }))),
+        HttpApiApp.createRoutes().pipe(
+          Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ OPENCODE_SERVER_PASSWORD: "secret" }))),
         ),
         { disableLogger: true },
       ).handler
       const response = yield* Effect.promise(() =>
         handler(
           new Request(new URL("/global/config", "http://localhost"), {
-            headers: { origin: "https://app.flashcode.ai" },
+            headers: { origin: "https://app.opencode.ai" },
           }),
-          ExperimentalHttpApiServer.context,
+          HttpApiApp.context,
         ),
       )
 
       expect(response.status).toBe(401)
-      expect(response.headers.get("access-control-allow-origin")).toBe("https://app.flashcode.ai")
+      expect(response.headers.get("access-control-allow-origin")).toBe("https://app.opencode.ai")
     }),
   )
 
@@ -103,6 +103,20 @@ describe("HttpApi CORS", () => {
       expect(response.status).toBe(204)
       expect(response.headers.get("access-control-allow-origin")).toBe("https://custom.example")
       expect(response.headers.get("access-control-allow-headers")).toBe("authorization")
+
+      const rejected = yield* Effect.promise(() =>
+        fetch(new URL(InstancePaths.path, listener.url), {
+          method: "OPTIONS",
+          headers: {
+            origin: "https://evil.example",
+            "access-control-request-method": "GET",
+            "access-control-request-headers": "authorization",
+          },
+        }),
+      )
+
+      expect(rejected.status).toBe(204)
+      expect(rejected.headers.get("access-control-allow-origin")).not.toBe("https://evil.example")
     }),
   )
 })

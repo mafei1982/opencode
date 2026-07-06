@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test"
+import * as fs from "node:fs"
+import * as fsPromises from "node:fs/promises"
 import path from "node:path"
 
 type CapturedFetchInit = BunFetchRequestInit & { timeout?: boolean }
@@ -7,37 +9,51 @@ const fetchCalls: Array<{ input: string; init?: CapturedFetchInit }> = []
 const ensureCalls: Array<{ serverPath?: string }> = []
 let spawnArgs: string[] | undefined
 let spawnEnv: Record<string, string | undefined> | undefined
+const spawn = mock((_args: string[], options?: { env?: Record<string, string | undefined> }) => {
+  spawnArgs = _args
+  spawnEnv = options?.env
+  return {
+    exitCode: null,
+    once: mock((_event: string, _handler: () => void) => undefined),
+    pid: 1234,
+    signalCode: null,
+    stderr: { pipe: mock((_dest: unknown, _options?: unknown) => undefined) },
+    stdout: { pipe: mock((_dest: unknown, _options?: unknown) => undefined) },
+  }
+})
+const stop = mock(async () => undefined)
 
 void mock.module("@ai-sdk/openai-compatible", () => ({
-  createOpenAICompatible: mock((config: {
-    fetch?: (input: Parameters<typeof fetch>[0], init?: BunFetchRequestInit) => Promise<Response>
-  }) => ({
-    languageModel: mock((_modelId: string) => ({
-      specificationVersion: "v3",
-      modelId: "default",
-      provider: "local_tcp",
-      supportedUrls: {},
-      doGenerate: mock(async (options: { abortSignal?: AbortSignal }) => {
-        await config.fetch?.("http://127.0.0.1/v1/chat/completions", {
-          method: "POST",
-          body: "{}",
-          signal: options.abortSignal,
-        })
-        return { text: "ok" }
-      }),
-      doStream: mock(async (options: { abortSignal?: AbortSignal }) => {
-        await config.fetch?.("http://127.0.0.1/v1/chat/completions", {
-          method: "POST",
-          body: "{}",
-          signal: options.abortSignal,
-        })
-        return { stream: new ReadableStream() }
-      }),
-    })),
-  })),
+  createOpenAICompatible: mock(
+    (config: { fetch?: (input: Parameters<typeof fetch>[0], init?: BunFetchRequestInit) => Promise<Response> }) => ({
+      languageModel: mock((_modelId: string) => ({
+        specificationVersion: "v3",
+        modelId: "default",
+        provider: "local_tcp",
+        supportedUrls: {},
+        doGenerate: mock(async (options: { abortSignal?: AbortSignal }) => {
+          await config.fetch?.("http://127.0.0.1/v1/chat/completions", {
+            method: "POST",
+            body: "{}",
+            signal: options.abortSignal,
+          })
+          return { text: "ok" }
+        }),
+        doStream: mock(async (options: { abortSignal?: AbortSignal }) => {
+          await config.fetch?.("http://127.0.0.1/v1/chat/completions", {
+            method: "POST",
+            body: "{}",
+            signal: options.abortSignal,
+          })
+          return { stream: new ReadableStream() }
+        }),
+      })),
+    }),
+  ),
 }))
 
 void mock.module("node:fs", () => ({
+  ...fs,
   createWriteStream: mock(() => ({
     end: mock(() => undefined),
   })),
@@ -45,6 +61,7 @@ void mock.module("node:fs", () => ({
 }))
 
 void mock.module("node:fs/promises", () => ({
+  ...fsPromises,
   appendFile: mock(async () => undefined),
   mkdir: mock(async () => undefined),
   truncate: mock(async () => undefined),
@@ -56,23 +73,9 @@ void mock.module("../../src/provider/sdk/local/gguf-resolver", () => ({
 }))
 
 void mock.module("@/util/process", () => ({
-  spawn: mock((_args: string[], options?: { env?: Record<string, string | undefined> }) => {
-    spawnArgs = _args
-    spawnEnv = options?.env
-    return {
-      exitCode: null,
-      once: mock((_event: string, _handler: () => void) => undefined),
-      pid: 1234,
-      signalCode: null,
-      stderr: {
-        pipe: mock((_dest: unknown, _options?: unknown) => undefined),
-      },
-      stdout: {
-        pipe: mock((_dest: unknown, _options?: unknown) => undefined),
-      },
-    }
-  }),
-  stop: mock(async () => undefined),
+  Process: { spawn, stop },
+  spawn,
+  stop,
 }))
 
 void mock.module("../../src/provider/sdk/local-tcp/llama-cpp-server", () => ({

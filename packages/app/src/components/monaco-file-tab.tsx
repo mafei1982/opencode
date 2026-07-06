@@ -1,7 +1,7 @@
 import { createMemo, createResource, createSignal, For, Match, Show, Switch } from "solid-js"
 import { Tabs } from "@opencode-ai/ui/tabs"
 import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Markdown } from "@opencode-ai/ui/markdown"
+import { Markdown } from "@opencode-ai/session-ui/markdown"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
@@ -19,10 +19,7 @@ function PdfPreview(props: { base64: string }) {
     () => props.base64,
     async (base64) => {
       const pdfjsLib = await import("pdfjs-dist")
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.mjs",
-        import.meta.url,
-      ).toString()
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString()
       const pdf = await pdfjsLib.getDocument({ data: base64ToUint8Array(base64) }).promise
       const rendered: string[] = []
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -199,7 +196,11 @@ export function MonacoFileTab(props: { tab: string }) {
           {(src) => (
             <div class="size-full overflow-auto bg-background-stronger">
               <div class="flex min-h-full items-center justify-center px-6 py-4">
-                <img src={src()} alt={path() ?? "image preview"} class="max-h-full max-w-full object-contain shadow-md" />
+                <img
+                  src={src()}
+                  alt={path() ?? "image preview"}
+                  class="max-h-full max-w-full object-contain shadow-md"
+                />
               </div>
             </div>
           )}

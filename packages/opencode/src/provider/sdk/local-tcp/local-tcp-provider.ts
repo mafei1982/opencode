@@ -2,7 +2,6 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import type { LanguageModelV3 } from "@ai-sdk/provider"
 import type { FetchFunction } from "@ai-sdk/provider-utils"
 import { Global } from "@opencode-ai/core/global"
-import * as Log from "@opencode-ai/core/util/log"
 import { createWriteStream } from "node:fs"
 import { appendFile, mkdir, truncate } from "node:fs/promises"
 import path from "node:path"
@@ -10,8 +9,6 @@ import { randomUUID } from "node:crypto"
 import * as Process from "@/util/process"
 import { getDefaultModelDir, resolveLocalGgufPath } from "../local/gguf-resolver"
 import { ensureLlamaCppServer, type LlamaCppServerDownloadProgress } from "./llama-cpp-server"
-
-const log = Log.create({ service: "local-tcp-provider" })
 
 const DEFAULT_MODEL_PATH = "unsloth/Qwen3.5-35B-A3B-GGUF:Q3_K_M"
 const DEFAULT_MODEL_ALIAS = "default"
@@ -127,7 +124,10 @@ function redactCommandArgs(args: string[]) {
   return args.map((value, index) => (index > 0 && args[index - 1] === "--api-key" ? "<redacted>" : value))
 }
 
-function resolveOptions(options?: LocalTcpProviderOptions): Required<Pick<LocalTcpProviderOptions, "modelPath" | "disableThinking" | "startupTimeout">> & LocalTcpProviderOptions {
+function resolveOptions(
+  options?: LocalTcpProviderOptions,
+): Required<Pick<LocalTcpProviderOptions, "modelPath" | "disableThinking" | "startupTimeout">> &
+  LocalTcpProviderOptions {
   return {
     modelPath: options?.modelPath ?? process.env.LLM_MODEL_PATH ?? DEFAULT_MODEL_PATH,
     nCtx: options?.nCtx ?? parseIntEnv(process.env.LLM_N_CTX),
@@ -159,15 +159,16 @@ function resolveOptions(options?: LocalTcpProviderOptions): Required<Pick<LocalT
     useMmap: options?.useMmap ?? parseBooleanEnv(process.env.LLM_USE_MMAP),
     useMlock: options?.useMlock ?? parseBooleanEnv(process.env.LLM_USE_MLOCK),
     disableThinking: options?.disableThinking ?? (process.env.LLM_DISABLE_THINKING ?? "").toLowerCase() === "true",
-    temperature: options?.temperature ?? (parseFloatEnv(process.env.LLM_TEMPERATURE) ?? 0.6),
-    topP: options?.topP ?? (parseFloatEnv(process.env.LLM_TOP_P) ?? 0.95),
-    topK: options?.topK ?? (parseIntEnv(process.env.LLM_TOP_K) ?? 20),
-    minP: options?.minP ?? (parseFloatEnv(process.env.LLM_MIN_P) ?? 0),
+    temperature: options?.temperature ?? parseFloatEnv(process.env.LLM_TEMPERATURE) ?? 0.6,
+    topP: options?.topP ?? parseFloatEnv(process.env.LLM_TOP_P) ?? 0.95,
+    topK: options?.topK ?? parseIntEnv(process.env.LLM_TOP_K) ?? 20,
+    minP: options?.minP ?? parseFloatEnv(process.env.LLM_MIN_P) ?? 0,
     repeatPenalty: options?.repeatPenalty ?? parseFloatEnv(process.env.LLM_REPEAT_PENALTY),
     repeatLastN: options?.repeatLastN ?? parseIntEnv(process.env.LLM_REPEAT_LAST_N),
     inferenceTimeout: options?.inferenceTimeout ?? parseIntEnv(process.env.LLM_INFERENCE_TIMEOUT),
     serverPath: options?.serverPath ?? process.env.LLM_TCP_SERVER_PATH,
-    startupTimeout: options?.startupTimeout ?? parseIntEnv(process.env.LLM_SERVER_START_TIMEOUT) ?? DEFAULT_STARTUP_TIMEOUT,
+    startupTimeout:
+      options?.startupTimeout ?? parseIntEnv(process.env.LLM_SERVER_START_TIMEOUT) ?? DEFAULT_STARTUP_TIMEOUT,
   }
 }
 
@@ -191,11 +192,6 @@ function resolveModelArgs(modelPath: string) {
 }
 
 function getLogPath() {
-  const current = Log.file()
-  if (current) {
-    const ext = path.extname(current) || ".log"
-    return path.join(path.dirname(current), `${path.basename(current, ext)}.llama-server${ext}`)
-  }
   return path.join(Global.Path.log, "llama-server.log")
 }
 
@@ -294,7 +290,7 @@ function createInferenceFetch(inferenceTimeout?: number): FetchFunction {
       await appendFile(
         target,
         `\n===== ${new Date().toISOString()} bytes=${Buffer.byteLength(opts.body)} =====\n${opts.body}\n`,
-      ).catch((error) => log.error("failed to write debug body", { error: String(error) }))
+      ).catch((error) => console.error("[local-tcp-provider] failed to write debug body", { error: String(error) }))
     }
 
     const chunkAbortCtl = typeof timeoutMs === "number" && timeoutMs > 0 ? new AbortController() : undefined
@@ -448,7 +444,7 @@ export async function loadLocalTcpServer(options?: LocalTcpProviderOptions) {
       process: child,
     } satisfies LocalTcpServer
 
-    log.info("starting local tcp llama-server", {
+    console.info("[local-tcp-provider] starting local tcp llama-server", {
       binary,
       command: formatCommandForLog(redactedArgs),
       cwd: path.dirname(binary),
@@ -476,7 +472,7 @@ export async function stopLocalTcpServer() {
   singletonLoadPromise = undefined
   if (!server) return
 
-  log.info("stopping local tcp llama-server", { pid: server.process.pid, port: server.port })
+  console.info("[local-tcp-provider] stopping local tcp llama-server", { pid: server.process.pid, port: server.port })
   await Process.stop(server.process)
 }
 
