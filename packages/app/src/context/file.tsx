@@ -173,7 +173,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       setLoading(file)
 
       const promise = sdk.client.file
-        .read({ path: file })
+        .read({ path: file }, { cache: "no-store" })
         .then((x) => {
           if (scope() !== directory) return
           const content = x.data
@@ -217,6 +217,19 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       })
     })
 
+    const reloadActive = () => {
+      const active = tabs.active()
+      const file = active ? path.pathFromTab(active) : undefined
+      if (!file) return
+      void load(file, { force: true })
+    }
+    const reloadVisible = () => {
+      if (document.visibilityState !== "visible") return
+      reloadActive()
+    }
+    window.addEventListener("focus", reloadActive)
+    document.addEventListener("visibilitychange", reloadVisible)
+
     const get = (input: string) => {
       const file = path.normalize(input)
       const state = store.file[file]
@@ -243,6 +256,8 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
 
     onCleanup(() => {
       stop()
+      window.removeEventListener("focus", reloadActive)
+      document.removeEventListener("visibilitychange", reloadVisible)
       viewCache.clear()
     })
 

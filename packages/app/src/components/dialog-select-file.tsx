@@ -350,7 +350,7 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
   const open = (path: string) => {
     const value = file.tab(path)
     void tabs().open(value)
-    void file.load(path)
+    void file.load(path, { force: true })
     if (!view().reviewPanel.opened()) view().reviewPanel.open()
     layout.fileTree.setTab("all")
     props.onOpenFile?.(path)

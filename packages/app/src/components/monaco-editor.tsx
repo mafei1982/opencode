@@ -145,24 +145,25 @@ export function MonacoEditor(props: {
   })
 
   createEffect(() => {
+    const content = props.content
     if (!editor) return
-    if (props.content === lastExternalContent) return
-    lastExternalContent = props.content
+    if (content === lastExternalContent) return
+    lastExternalContent = content
     const current = editor.getValue()
     const isDirty = current !== initialContent
     if (!isDirty) {
-      initialContent = props.content
-      editor.setValue(props.content)
+      initialContent = content
+      editor.setValue(content)
       props.onDirty?.(false)
       return
     }
-    if (props.content === current) return
+    if (content === current) return
     const reload = window.confirm(
       "This file has been modified externally. Reload the file? (OK = reload, Cancel = keep your changes)",
     )
     if (reload) {
-      initialContent = props.content
-      editor.setValue(props.content)
+      initialContent = content
+      editor.setValue(content)
       props.onDirty?.(false)
     }
   })

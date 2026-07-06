@@ -32,3 +32,4 @@ logs/
 tsconfig.tsbuildinfo
 .vs/
 workspaces/
+packages/desktop/models/

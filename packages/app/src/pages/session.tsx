@@ -947,7 +947,7 @@ export default function Page() {
     tabForPath: file.tab,
     openTab: tabs().open,
     setActive: tabs().setActive,
-    loadFile: file.load,
+    loadFile: (path) => file.load(path, { force: true }),
   })
 
   const changesTitle = () => {

@@ -79,7 +79,6 @@ For the FlashCode desktop build, three environment variables matter:
 - `FLASHCODE_EMBEDDED_CONFIG_DIR`: points at the config directory that should be embedded into the packaged app during build
 - `FLASHCODE_TOOLS_DIR`: points at the tools directory copied into `resources/tools/`
 - `FLASHCODE_SHOW_DEFAULT_AGENTS`: optional boolean override for the built-in `build` and `plan` agents. Accepts `true/false`, `1/0`, `yes/no`, or `on/off`.
-- `ENABLE_LICENSE_CHECK`: optional build-time boolean. When truthy, packaged desktop startup performs the license check. `enable_license_check` is also accepted.
 
 Legacy compatibility is still supported for `NI_CIC_TOOLS_DIR`.
 
@@ -88,7 +87,6 @@ Typical Windows packaging command:
 ```powershell
 $Env:FLASHCODE_EMBEDDED_CONFIG_DIR = "D:\dev\fma\teststand-opencode-skill\.flashcode"
 $Env:FLASHCODE_TOOLS_DIR = "D:\dev\fma\teststand-opencode-skill\.flashcode\tools"
-$Env:ENABLE_LICENSE_CHECK = "true"
 bun run build
 bun run package
 ```
@@ -102,16 +100,6 @@ This produces a desktop app that contains:
 
 When `FLASHCODE_SHOW_DEFAULT_AGENTS` is unset, desktop builds that embed config hide the built-in `build` and `plan` agents by default if the embedded config provides at least one visible primary or `all` custom agent. If the variable is set, it fully controls the visibility of those two built-in agents.
 Packaged desktop runs also rewrite `FLASHCODE_TOOLS_DIR` to the bundled `resources/tools` directory when that directory exists.
-
-## Packaged License Check
-
-When `ENABLE_LICENSE_CHECK` or `enable_license_check` is truthy during `bun run build`, the packaged desktop app validates a license file before the renderer or sidecar starts.
-
-- the default file name is `license_<current-username>.lic`
-- the file must live next to the packaged executable
-- the validation logic mirrors `ccs_meta_license` V1/V2/V3 checks for platform, expiry, machine identity, OS disk size, and RDMA MAC when those fields are present in the license
-- if validation fails, the app shows a blocking error dialog and exits immediately
-- accepted truthy/falsy values are `true/false`, `1/0`, `yes/no`, and `on/off`; when unset, license checking is disabled in the built desktop app
 
 ## Runtime Logic For Embedded Config
 
@@ -157,7 +145,6 @@ instead of `.opencode\tools\semantic-lint\bin\semantic-lint.exe`.
 - `FLASHCODE_EMBEDDED_CONFIG_DIR`: canonical embedded-config env var. During build it points at the source config directory to embed; at runtime the sidecar rewrites it to the extracted encrypted config directory.
 - `FLASHCODE_TOOLS_DIR`: bundles extra tools into the packaged app at build time and is rewritten to the packaged `resources/tools` directory at runtime when available
 - `FLASHCODE_SHOW_DEFAULT_AGENTS`: when set, explicitly shows or hides the built-in `build` and `plan` agents regardless of agent `hidden` overrides in config.
-- `ENABLE_LICENSE_CHECK`: optional build-time boolean that bakes packaged startup license enforcement into the main desktop bundle. `enable_license_check` is also accepted.
 
 ## Bundled llm.env Defaults
 
@@ -172,7 +159,6 @@ SHOW_MODELS=true
 LLM_MODEL_PATH=Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q4_K_M
 LLM_N_CTX=262144
 LLM_N_GPU_LAYERS=65
-#LLM_CUDA_DEVICES=CUDA0,CUDA1
 LLM_MAX_THREADS=7
 LLM_BATCH_SIZE=512
 LLM_MAX_CONCURRENCY=1
@@ -211,7 +197,6 @@ Key behaviors controlled by those values:
 - `SHOW_MODELS=true`: keeps the model picker and variant selector visible beneath the chat input; set it to `false` to hide them.
 - `LLM_MODEL_PATH`: selects the default bundled GGUF model identifier.
 - `LLM_N_CTX`, `LLM_N_GPU_LAYERS`, `LLM_MAX_THREADS`, `LLM_BATCH_SIZE`, `LLM_MAX_CONCURRENCY`, `LLM_PARALLEL_N`: control llama.cpp context size, GPU offload, threading, batching, and concurrency.
-- `LLM_CUDA_DEVICES`: optional comma-separated llama.cpp device list passed through to `--device` / `-dev`, for example `CUDA0,CUDA1`.
 - `LLM_KV_UNIFIED`, `LLM_CACHE_RAM`, `LLM_CTX_CHECKPOINTS`, `LLM_CHECKPOINT_MIN_STEP`: configure llama.cpp server-side KV sharing, cache budget, and prompt checkpoint retention behavior.
 - `LLM_SPEC_TYPE`, `LLM_SPEC_DRAFT_N_MAX`, `LLM_SPEC_DRAFT_N_MIN`, `LLM_SPEC_DRAFT_P_MIN`, `LLM_N_GPU_LAYERS_DRAFT`, `LLM_SPEC_DRAFT_TYPE_K`, `LLM_SPEC_DRAFT_TYPE_V`: configure llama.cpp speculative decoding, including the draft mode, token budget, minimum draft acceptance probability, draft GPU offload, and draft KV cache types.
 - `LLM_SPLIT_MODE`: optional llama.cpp multi-GPU split strategy override (`none`, `layer`, `row`, `tensor`). Leave it unset unless you explicitly want to override the bundled server default.
