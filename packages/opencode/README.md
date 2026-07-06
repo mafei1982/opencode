@@ -77,6 +77,8 @@ LLM_INFERENCE_TIMEOUT=0
 LLM_REPEAT_PENALTY=1.1
 ```
 
+For `LLM_PROVIDER=local_tcp`, OpenCode starts a local llama.cpp server. It first uses `LLM_TCP_SERVER_PATH` when set, then checks packaged/build-time locations, and on Windows x64 downloads the pinned llama.cpp server on first use if it is missing. The server is cached under the user's app cache directory and reused on later starts.
+
 Then start the standalone server:
 
 ```bash

@@ -32,4 +32,5 @@ logs/
 tsconfig.tsbuildinfo
 .vs/
 workspaces/
+vendor/llama-cpp-server/
 packages/desktop/models/

@@ -3,13 +3,13 @@ import type { LanguageModelV3 } from "@ai-sdk/provider"
 import type { FetchFunction } from "@ai-sdk/provider-utils"
 import { Global } from "@opencode-ai/core/global"
 import * as Log from "@opencode-ai/core/util/log"
-import { createWriteStream, existsSync } from "node:fs"
+import { createWriteStream } from "node:fs"
 import { appendFile, mkdir, truncate } from "node:fs/promises"
 import path from "node:path"
 import { randomUUID } from "node:crypto"
-import { fileURLToPath } from "node:url"
 import * as Process from "@/util/process"
 import { getDefaultModelDir, resolveLocalGgufPath } from "../local/gguf-resolver"
+import { ensureLlamaCppServer, type LlamaCppServerDownloadProgress } from "./llama-cpp-server"
 
 const log = Log.create({ service: "local-tcp-provider" })
 
@@ -60,6 +60,7 @@ export interface LocalTcpProviderOptions {
   inferenceTimeout?: number
   serverPath?: string
   startupTimeout?: number
+  downloadProgress?: (progress: LlamaCppServerDownloadProgress) => void
 }
 
 type LocalTcpServer = {
@@ -172,47 +173,6 @@ function resolveOptions(options?: LocalTcpProviderOptions): Required<Pick<LocalT
 
 function isHuggingFaceSpec(modelPath: string) {
   return /^[^/\\]+\/[^/:\\]+(?::.+)?$/.test(modelPath)
-}
-
-function findRepoRoot(start: string): string | undefined {
-  let current = start
-  while (true) {
-    if (existsSync(path.join(current, "vendor")) && existsSync(path.join(current, "packages"))) return current
-    const parent = path.dirname(current)
-    if (parent === current) return
-    current = parent
-  }
-}
-
-function findPackageRoot(start: string): string | undefined {
-  let current = start
-  while (true) {
-    if (existsSync(path.join(current, "package.json"))) return current
-    const parent = path.dirname(current)
-    if (parent === current) return
-    current = parent
-  }
-}
-
-function resolveServerBinary(options: LocalTcpProviderOptions) {
-  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
-  const dirname = path.dirname(fileURLToPath(import.meta.url))
-  const packageRoot = findPackageRoot(dirname)
-  const repoRoot = findRepoRoot(dirname)
-  const candidates = [
-    options.serverPath,
-    process.env.LLM_TCP_SERVER_PATH,
-    resourcesPath ? path.join(resourcesPath, "llama-cpp-server", "llama-server.exe") : undefined,
-    packageRoot ? path.join(packageRoot, "dist", "node", "llama-cpp-server", "llama-server.exe") : undefined,
-    repoRoot ? path.join(repoRoot, "vendor", "llama-cpp-server", "llama-server.exe") : undefined,
-  ].filter((value): value is string => Boolean(value))
-
-  const match = candidates.find((candidate) => existsSync(candidate))
-  if (match) return match
-
-  throw new Error(
-    `Unable to find llama-server.exe. Looked in: ${candidates.join(", ")}. Set LLM_TCP_SERVER_PATH to override.`,
-  )
 }
 
 function resolveModelArgs(modelPath: string) {
@@ -395,7 +355,10 @@ export async function loadLocalTcpServer(options?: LocalTcpProviderOptions) {
 
   singletonLoadPromise = (async () => {
     const resolved = resolveOptions(options)
-    const binary = resolveServerBinary(resolved)
+    const binary = await ensureLlamaCppServer({
+      downloadProgress: resolved.downloadProgress,
+      serverPath: resolved.serverPath,
+    })
     const port = await getFreePort()
     const apiKey = randomUUID()
     const logPath = getLogPath()

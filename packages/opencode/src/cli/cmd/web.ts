@@ -44,7 +44,7 @@ export const WebCommand = effectCmd({
     const opts = yield* resolveNetworkOptions(args)
 
     if (isLocalTcpProviderEnabled()) {
-      UI.println(UI.Style.TEXT_INFO_BOLD + "  Starting local llama.cpp server...")
+      UI.println(UI.Style.TEXT_INFO_BOLD + "  Starting local llama.cpp server (first run may download it)...")
       yield* Effect.promise(() => loadLocalTcpServer())
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Local llama.cpp server is ready.")
     }

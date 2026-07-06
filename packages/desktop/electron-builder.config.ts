@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -10,6 +11,23 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.
 const signScript = path.join(rootDir, "script", "sign-windows.ps1")
 const deepLinkSchemes = ["flashcode", "ni-cic-code", "opencode"]
 const bundledToolsDir = process.env.FLASHCODE_TOOLS_DIR ?? process.env.NI_CIC_TOOLS_DIR
+const bundledLlamaCppServerDir = path.join(rootDir, "packages", "opencode", "dist", "node", "llama-cpp-server")
+const truthy = new Set(["1", "true", "yes", "on"])
+const falsy = new Set(["0", "false", "no", "off"])
+
+function readBuildBoolean(value: string | undefined, fallback: boolean) {
+  if (!value) return fallback
+  const normalized = value.trim().toLowerCase()
+  if (truthy.has(normalized)) return true
+  if (falsy.has(normalized)) return false
+  return fallback
+}
+
+const addLlamaCppServer = readBuildBoolean(process.env.add_llama_cpp_server ?? process.env.ADD_LLAMA_CPP_SERVER, false)
+
+if (addLlamaCppServer && !existsSync(path.join(bundledLlamaCppServerDir, "llama-server.exe"))) {
+  throw new Error("add_llama_cpp_server=true requires packages/opencode/dist/node/llama-cpp-server/llama-server.exe")
+}
 
 async function signWindows(configuration: { path: string }) {
   if (process.platform !== "win32") return
@@ -46,11 +64,9 @@ const getBase = (): Configuration => ({
       to: "llm.env",
       filter: ["llm.env"],
     },
-    {
-      from: "../../vendor/llama-cpp-server",
-      to: "llama-cpp-server",
-      filter: ["**/*"],
-    },
+    ...(addLlamaCppServer
+      ? [{ from: "../opencode/dist/node/llama-cpp-server", to: "llama-cpp-server", filter: ["**/*"] }]
+      : []),
     ...(bundledToolsDir
       ? [{ from: bundledToolsDir, to: "tools/" }]
       : []),

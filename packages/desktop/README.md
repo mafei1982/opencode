@@ -51,6 +51,7 @@ The builder config currently does all of the following:
 
 - reads `out/**/*` and `resources/**/*`
 - bundles `resources/llm.env` into the packaged app when present
+- optionally bundles the pinned Windows llama.cpp server from `packages/opencode/dist/node/llama-cpp-server` when `add_llama_cpp_server=true`
 - optionally bundles tools from `NI_CIC_TOOLS_DIR` into `resources/tools/`
 - selects product name, app id, and publish target from `OPENCODE_CHANNEL`
 - signs Windows binaries in CI through `script/sign-windows.ps1`
@@ -78,6 +79,7 @@ For the FlashCode desktop build, three environment variables matter:
 
 - `FLASHCODE_EMBEDDED_CONFIG_DIR`: points at the config directory that should be embedded into the packaged app during build
 - `FLASHCODE_TOOLS_DIR`: points at the tools directory copied into `resources/tools/`
+- `add_llama_cpp_server`: when `true`, reuses or downloads the pinned Windows llama.cpp server in the app cache during prebuild, then packages it into `resources/llama-cpp-server/`; defaults to not bundling it
 - `FLASHCODE_SHOW_DEFAULT_AGENTS`: optional boolean override for the built-in `build` and `plan` agents. Accepts `true/false`, `1/0`, `yes/no`, or `on/off`.
 
 Legacy compatibility is still supported for `NI_CIC_TOOLS_DIR`.
@@ -97,6 +99,7 @@ This produces a desktop app that contains:
 - embedded OpenCode config from `.flashcode`
 - bundled NI CIC tools from `.flashcode/tools`
 - optional local-LLM env config from `llm.env`, `.env`, or `LLM_ENV_FILE`
+- optional llama.cpp server binaries when `add_llama_cpp_server=true`
 
 When `FLASHCODE_SHOW_DEFAULT_AGENTS` is unset, desktop builds that embed config hide the built-in `build` and `plan` agents by default if the embedded config provides at least one visible primary or `all` custom agent. If the variable is set, it fully controls the visibility of those two built-in agents.
 Packaged desktop runs also rewrite `FLASHCODE_TOOLS_DIR` to the bundled `resources/tools` directory when that directory exists.
@@ -113,7 +116,7 @@ At runtime the desktop sidecar does the following:
 6. sets `FLASHCODE_REFERENCES_DIR` when the extracted config contains a `references/` folder
 7. sets `FLASHCODE_TOOLS_DIR` to the bundled app tools directory when `resources/tools` exists
 8. starts the embedded OpenCode server
-9. if `LLM_PROVIDER=local`, begins local model loading in the background
+9. if `LLM_PROVIDER=local_tcp`, starts the local TCP llama.cpp server in the background
 
 Legacy compatibility is still supported for `NI_CIC_REFERENCES_DIR`.
 
@@ -140,8 +143,10 @@ instead of `.opencode\tools\semantic-lint\bin\semantic-lint.exe`.
 - `OPENCODE_CHANNEL`: `dev`, `beta`, or `prod`; changes app id, product name, and publish target
 - `LLM_ENV_FILE`: path to a `.env` file to bundle as `resources/llm.env`
 - local `llm.env` or `.env`: fallback sources bundled into `resources/llm.env` when `LLM_ENV_FILE` is not set
-- `LLM_PROVIDER`: when set to `local`, the sidecar preloads the local llama.cpp model after startup
+- `LLM_PROVIDER`: when set to `local_tcp`, the sidecar starts the local TCP llama.cpp provider after startup
+- `LLM_TCP_SERVER_PATH`: optional path to a user-provided `llama-server.exe`; when unset, `local_tcp` uses the packaged server if present, then falls back to the downloaded cache
 - `LLM_MODEL_DIR`: overrides where local GGUF models are stored; defaults to the running app directory's `models/` folder when unset
+- `add_llama_cpp_server`: build-time flag that copies the pinned Windows llama.cpp server from the app cache into `resources/llama-cpp-server/`; defaults to `false`, so first `local_tcp` runtime downloads the server on demand
 - `FLASHCODE_EMBEDDED_CONFIG_DIR`: canonical embedded-config env var. During build it points at the source config directory to embed; at runtime the sidecar rewrites it to the extracted encrypted config directory.
 - `FLASHCODE_TOOLS_DIR`: bundles extra tools into the packaged app at build time and is rewritten to the packaged `resources/tools` directory at runtime when available
 - `FLASHCODE_SHOW_DEFAULT_AGENTS`: when set, explicitly shows or hides the built-in `build` and `plan` agents regardless of agent `hidden` overrides in config.
@@ -190,7 +195,7 @@ LLM_PARALLEL_N=1
 
 Key behaviors controlled by those values:
 
-- `LLM_PROVIDER=local_tcp`: starts the desktop build against the bundled local TCP llama.cpp provider by default.
+- `LLM_PROVIDER=local_tcp`: starts the desktop build against the local TCP llama.cpp provider. Packaged apps use `resources/llama-cpp-server` when built with `add_llama_cpp_server=true`; otherwise the server is downloaded on first use and cached under the user's app cache directory.
 - `LLM_DISABLE_NON_LOCAL_PROVIDERS=true`: when the provider is `local` or `local_tcp`, non-local providers are disabled by default; set this to `false` to re-enable other providers.
 - `OPENCODE_DEFAULT_THEME=ni`: forces the desktop UI theme to `ni` while this key is present; remove or leave it unset to fall back to the user's saved theme.
 - `OPENCODE_SHOW_SETTINGS=false`: hides the settings button and settings entry points by default; set it to `true` to show them again.
@@ -211,4 +216,5 @@ If you want to change the packaged desktop defaults, edit `packages/desktop/llm.
 
 - If packaging fails with `Access is denied` under `dist/win-unpacked`, close the running packaged app and remove `dist/win-unpacked` before retrying.
 - If the app starts without local LLM settings, verify that `resources/llm.env` was produced during `prebuild`.
+- If the first `local_tcp` startup cannot download the llama.cpp server, set `LLM_TCP_SERVER_PATH` to a local `llama-server.exe` or rebuild with `add_llama_cpp_server=true`.
 - If embedded agents cannot resolve reference files, confirm the prompt uses `{env:FLASHCODE_REFERENCES_DIR}` instead of hardcoded `.flashcode` paths.

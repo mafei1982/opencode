@@ -61,11 +61,27 @@ await Bun.build({
 
 const bundledLlamaServerSource = path.resolve(dir, "../../vendor/llama-cpp-server")
 const bundledLlamaServerTarget = path.join(dir, "dist", "node", "llama-cpp-server")
+const truthy = new Set(["1", "true", "yes", "on"])
+const addLlamaCppServer = truthy.has((process.env.add_llama_cpp_server ?? process.env.ADD_LLAMA_CPP_SERVER ?? "").trim().toLowerCase())
 
-if (await fs.promises.stat(bundledLlamaServerSource).then(() => true).catch(() => false)) {
-  await fs.promises.rm(bundledLlamaServerTarget, { recursive: true, force: true })
-  await fs.promises.cp(bundledLlamaServerSource, bundledLlamaServerTarget, { recursive: true })
-  console.log(`Bundled llama.cpp server: ${bundledLlamaServerSource} -> ${bundledLlamaServerTarget}`)
+await fs.promises.rm(bundledLlamaServerTarget, { recursive: true, force: true })
+
+if (addLlamaCppServer) {
+  const { installLlamaCppServer } = await import("../src/provider/sdk/local-tcp/llama-cpp-server")
+  let lastLlamaDownloadProgress = -10
+  const binary = await installLlamaCppServer(bundledLlamaServerTarget, {
+    arch: "x64",
+    platform: "win32",
+    downloadProgress: (progress) => {
+      if (progress.totalSize > 0 && (progress.percent >= lastLlamaDownloadProgress + 10 || progress.percent === 100)) {
+        lastLlamaDownloadProgress = progress.percent
+        console.log(`Downloading llama.cpp server: ${progress.percent}%`)
+      }
+    },
+  })
+  console.log(`Bundled llama.cpp server: ${binary} -> ${bundledLlamaServerTarget}`)
+} else if (await fs.promises.stat(bundledLlamaServerSource).then(() => true).catch(() => false)) {
+  console.log("Skipped llama.cpp server bundling. Set add_llama_cpp_server=true to include it in dist/node.")
 }
 
 console.log("Build complete")

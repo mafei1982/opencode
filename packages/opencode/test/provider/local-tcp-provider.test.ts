@@ -4,6 +4,7 @@ import path from "node:path"
 type CapturedFetchInit = BunFetchRequestInit & { timeout?: boolean }
 
 const fetchCalls: Array<{ input: string; init?: CapturedFetchInit }> = []
+const ensureCalls: Array<{ serverPath?: string }> = []
 let spawnArgs: string[] | undefined
 let spawnEnv: Record<string, string | undefined> | undefined
 
@@ -74,12 +75,20 @@ void mock.module("@/util/process", () => ({
   stop: mock(async () => undefined),
 }))
 
+void mock.module("../../src/provider/sdk/local-tcp/llama-cpp-server", () => ({
+  ensureLlamaCppServer: mock(async (options?: { serverPath?: string }) => {
+    ensureCalls.push(options ?? {})
+    return options?.serverPath ?? "C:/fake/llama-server.exe"
+  }),
+}))
+
 const { createLocalTcp, stopLocalTcpServer } = await import("../../src/provider/sdk/local-tcp/local-tcp-provider")
 
 const originalFetch = globalThis.fetch
 
 beforeEach(() => {
   fetchCalls.length = 0
+  ensureCalls.length = 0
   spawnArgs = undefined
   spawnEnv = undefined
   globalThis.fetch = mock(async (input: Parameters<typeof fetch>[0], init?: BunFetchRequestInit) => {
@@ -134,6 +143,33 @@ test("local_tcp forwards cuda devices from env to llama-server args", async () =
   const deviceIndex = spawnArgs?.indexOf("--device") ?? -1
   expect(deviceIndex).toBeGreaterThan(-1)
   expect(spawnArgs?.[deviceIndex + 1]).toBe("CUDA0,CUDA1")
+})
+
+test("local_tcp passes explicit server path to the server resolver", async () => {
+  process.env.LLM_TCP_SERVER_PATH = "C:/custom/llama-server.exe"
+  const provider = createLocalTcp({
+    modelPath: "fake/model.gguf",
+    startupTimeout: 1_000,
+  })
+
+  await provider.languageModel("default").doGenerate({} as never)
+
+  expect(ensureCalls).toHaveLength(1)
+  expect(ensureCalls[0]?.serverPath).toBe("C:/custom/llama-server.exe")
+  expect(spawnArgs?.[0]).toBe("C:/custom/llama-server.exe")
+})
+
+test("local_tcp deduplicates concurrent server loads", async () => {
+  process.env.LLM_TCP_SERVER_PATH = "C:/fake/llama-server.exe"
+  const provider = createLocalTcp({
+    modelPath: "fake/model.gguf",
+    startupTimeout: 1_000,
+  })
+  const model = provider.languageModel("default")
+
+  await Promise.all([model.doGenerate({} as never), model.doStream({} as never)])
+
+  expect(ensureCalls).toHaveLength(1)
 })
 
 test("local_tcp forwards kv/cache checkpoint envs to llama-server args", async () => {

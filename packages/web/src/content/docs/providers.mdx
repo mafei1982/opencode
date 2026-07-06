@@ -1201,6 +1201,8 @@ See the [Helicone Header Directory](https://docs.helicone.ai/helicone-headers/he
 
 You can configure opencode to use local models through [llama.cpp's](https://github.com/ggml-org/llama.cpp) llama-server utility
 
+When using the built-in `local_tcp` provider on Windows x64, opencode can manage the llama.cpp server binary for you. Set `LLM_TCP_SERVER_PATH` to use your own `llama-server.exe`; otherwise opencode checks packaged/build-time locations and downloads the pinned server on first use when it is missing.
+
 ```json title="flashcode.json" "llama.cpp" {5, 6, 8, 10-15}
 {
   "$schema": "https://opencode.ai/config.json",

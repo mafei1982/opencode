@@ -36,6 +36,8 @@ type SidecarMessage =
   | { type: "stopped" }
   | { type: "error"; error: { message: string; stack?: string } }
 
+type LlmDownloadProgress = { downloadedSize: number; percent: number; totalSize: number }
+
 type ParentPort = {
   postMessage(message: SidecarMessage): void
   on(event: "message", listener: (event: { data: unknown }) => void): void
@@ -99,7 +101,21 @@ async function start(command: StartCommand) {
     if ((process.env.LLM_PROVIDER ?? "").toLowerCase() === "local_tcp") {
       console.log("[sidecar] Starting local llama.cpp server...")
       import("virtual:opencode-server")
-        .then(({ loadLocalTcpServer }) => loadLocalTcpServer())
+        .then(({ loadLocalTcpServer }) =>
+          loadLocalTcpServer({
+            downloadProgress: (progress: LlmDownloadProgress) => {
+              parentPort.postMessage({
+                type: "llm",
+                progress: {
+                  type: "InProgress",
+                  downloadedSize: progress.downloadedSize,
+                  percent: progress.percent,
+                  totalSize: progress.totalSize,
+                },
+              })
+            },
+          }),
+        )
         .then(() => {
           parentPort.postMessage({ type: "llm", progress: { type: "Done" } })
           console.log("[sidecar] Local llama.cpp server is ready.")

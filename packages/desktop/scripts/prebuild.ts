@@ -5,7 +5,14 @@ import { existsSync, copyFileSync, unlinkSync } from "node:fs"
 import { resolveChannel } from "./utils"
 
 const channel = resolveChannel()
+const truthy = new Set(["1", "true", "yes", "on"])
+const addLlamaCppServer = truthy.has((process.env.add_llama_cpp_server ?? process.env.ADD_LLAMA_CPP_SERVER ?? "").trim().toLowerCase())
 await $`bun ./scripts/copy-icons.ts ${channel}`
+console.log(
+  addLlamaCppServer
+    ? "Bundling llama.cpp server into desktop resources."
+    : "Skipping bundled llama.cpp server; local_tcp will download it on first run when needed.",
+)
 
 // Copy LLM env file into resources/ so the desktop app auto-starts with
 // local LLM configuration. Prefer an explicit override, then local llm.env,
