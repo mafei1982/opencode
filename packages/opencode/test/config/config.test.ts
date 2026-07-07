@@ -313,7 +313,7 @@ it.effect("creates global jsonc config with schema when no global configs exist"
     Effect.gen(function* () {
       yield* Config.use.get().pipe(provideInstanceEffect(dir))
 
-      const content = yield* FSUtil.use.readFileString(path.join(dir, "opencode.jsonc"))
+      const content = yield* FSUtil.use.readFileString(path.join(dir, "flashcode.jsonc"))
       expect(content).toContain('"$schema": "https://opencode.ai/config.json"')
     }).pipe(Effect.provide(testInstanceStoreLayer), Effect.provide(LayerNode.compile(CrossSpawnSpawner.node))),
   ),
@@ -329,7 +329,7 @@ it.effect("does not create global config when OPENCODE_CONFIG_DIR is set", () =>
         Effect.gen(function* () {
           yield* Config.use.get().pipe(provideInstanceEffect(dir))
 
-          expect(yield* FSUtil.use.existsSafe(path.join(dir, "opencode.jsonc"))).toBe(false)
+          expect(yield* FSUtil.use.existsSafe(path.join(dir, "flashcode.jsonc"))).toBe(false)
         }).pipe(Effect.provide(testInstanceStoreLayer), Effect.provide(LayerNode.compile(CrossSpawnSpawner.node))),
       ),
     )
@@ -766,6 +766,49 @@ Test agent prompt`,
   }),
 )
 
+it.instance("loads flashcode.json with higher priority than opencode.json", () =>
+  Effect.gen(function* () {
+    const test = yield* TestInstance
+    yield* writeConfigEffect(test.directory, { username: "opencode" }, "opencode.json")
+    yield* writeConfigEffect(test.directory, { username: "flashcode" }, "flashcode.json")
+
+    expect((yield* Config.use.get()).username).toBe("flashcode")
+  }),
+)
+
+it.instance("loads agents and commands from .flashcode", () =>
+  Effect.gen(function* () {
+    const test = yield* TestInstance
+    yield* FSUtil.use.writeWithDirs(
+      path.join(test.directory, ".flashcode", "agents", "helper.md"),
+      `---
+model: test/model
+mode: subagent
+---
+FlashCode agent prompt`,
+    )
+    yield* FSUtil.use.writeWithDirs(
+      path.join(test.directory, ".flashcode", "commands", "hello.md"),
+      `---
+description: FlashCode command
+---
+FlashCode command template`,
+    )
+
+    const config = yield* Config.use.get()
+    expect(config.agent?.helper).toMatchObject({
+      name: "helper",
+      model: "test/model",
+      mode: "subagent",
+      prompt: "FlashCode agent prompt",
+    })
+    expect(config.command?.hello).toEqual({
+      description: "FlashCode command",
+      template: "FlashCode command template",
+    })
+  }),
+)
+
 it.instance("agent markdown permission config preserves user key order", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
@@ -906,6 +949,37 @@ it.instance("gets config directories", () =>
   Effect.gen(function* () {
     const dirs = yield* Config.use.directories()
     expect(dirs.length).toBeGreaterThanOrEqual(1)
+  }),
+)
+
+it.instance("loads explicit FLASHCODE_CONFIG", () =>
+  Effect.gen(function* () {
+    const test = yield* TestInstance
+    const file = path.join(test.directory, "explicit-flashcode.json")
+    yield* FSUtil.use.writeJson(file, { model: "flashcode/explicit" })
+
+    yield* withProcessEnv(
+      "FLASHCODE_CONFIG",
+      file,
+      Effect.gen(function* () {
+        expect((yield* Config.use.get()).model).toBe("flashcode/explicit")
+      }),
+    )
+  }),
+)
+
+it.instance("loads FLASHCODE_CONFIG_DIR", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    yield* writeConfigEffect(dir, { model: "flashcode/config-dir" }, "flashcode.json")
+
+    yield* withProcessEnv(
+      "FLASHCODE_CONFIG_DIR",
+      dir,
+      Effect.gen(function* () {
+        expect((yield* Config.use.get()).model).toBe("flashcode/config-dir")
+      }),
+    )
   }),
 )
 
@@ -1801,6 +1875,19 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
     { config: { model: "project/model", username: "project-user" } },
   )
 
+  it.instance(
+    "accepts FLASHCODE_DISABLE_PROJECT_CONFIG",
+    () =>
+      withProcessEnv(
+        "FLASHCODE_DISABLE_PROJECT_CONFIG",
+        "true",
+        Effect.gen(function* () {
+          expect((yield* Config.use.get()).model).not.toBe("project/model")
+        }),
+      ),
+    { config: { model: "project/model" } },
+  )
+
   it.instance("skips project .opencode/ directories when flag is set", () =>
     withProcessEnv(
       "OPENCODE_DISABLE_PROJECT_CONFIG",
@@ -1895,6 +1982,19 @@ describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
           expect(config.username).toBe("test_api_key_12345")
         }),
       ),
+    ),
+  )
+
+  it.instance("loads FLASHCODE_CONFIG_CONTENT", () =>
+    withProcessEnv(
+      "FLASHCODE_CONFIG_CONTENT",
+      JSON.stringify({
+        $schema: "https://opencode.ai/config.json",
+        username: "flashcode-content",
+      }),
+      Effect.gen(function* () {
+        expect((yield* Config.use.get()).username).toBe("flashcode-content")
+      }),
     ),
   )
 

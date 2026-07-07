@@ -16,14 +16,21 @@ import { testEffect } from "../lib/effect"
 const it = testEffect(LayerNode.compile(LayerNode.group([Config.node, FSUtil.node])))
 const winIt = process.platform === "win32" ? it.instance : it.instance.skip
 
-const globalConfigFiles = ["opencode.json", "opencode.jsonc", "tui.json", "tui.jsonc"].map((file) =>
-  path.join(Global.Path.config, file),
-)
+const globalConfigFiles = [
+  "opencode.json",
+  "opencode.jsonc",
+  "flashcode.json",
+  "flashcode.jsonc",
+  "tui.json",
+  "tui.jsonc",
+].map((file) => path.join(Global.Path.config, file))
 
 const cleanState = Effect.gen(function* () {
   const fs = yield* FSUtil.Service
   delete process.env.OPENCODE_CONFIG
   delete process.env.OPENCODE_TUI_CONFIG
+  delete process.env.FLASHCODE_CONFIG
+  delete process.env.FLASHCODE_TUI_CONFIG
   yield* Effect.forEach(globalConfigFiles, (file) => fs.remove(file, { force: true }).pipe(Effect.ignore), {
     discard: true,
   })
@@ -659,6 +666,27 @@ it.instance("OPENCODE_TUI_CONFIG provides settings when no project config exists
   ),
 )
 
+it.instance("FLASHCODE_TUI_CONFIG provides settings when no project config exists", () =>
+  withCleanState(
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const test = yield* TestInstance
+      const custom = path.join(test.directory, "flashcode-tui.json")
+      yield* fs.writeJson(custom, { theme: "from-flashcode-env", diff_style: "stacked" })
+
+      yield* withEnv(
+        "FLASHCODE_TUI_CONFIG",
+        custom,
+        Effect.gen(function* () {
+          const config = yield* getTuiConfig(test.directory)
+          expect(config.theme).toBe("from-flashcode-env")
+          expect(config.diff_style).toBe("stacked")
+        }),
+      )
+    }),
+  ),
+)
+
 it.instance("does not derive tui path from OPENCODE_CONFIG", () =>
   withCleanState(
     Effect.gen(function* () {
@@ -735,6 +763,21 @@ it.instance("loads .opencode/tui.json", () =>
 
       const config = yield* getTuiConfig(test.directory)
       expect(config.diff_style).toBe("stacked")
+    }),
+  ),
+)
+
+it.instance("loads .flashcode/tui.json", () =>
+  withCleanState(
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const test = yield* TestInstance
+      yield* fs.writeWithDirs(
+        path.join(test.directory, ".flashcode", "tui.json"),
+        JSON.stringify({ diff_style: "stacked" }, null, 2),
+      )
+
+      expect((yield* getTuiConfig(test.directory)).diff_style).toBe("stacked")
     }),
   ),
 )

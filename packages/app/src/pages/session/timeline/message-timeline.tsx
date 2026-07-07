@@ -225,11 +225,33 @@ function TimelineDiffSummaryRow(props: { diffs: SummaryDiff[] }) {
 
 function TimelineDiffView(props: { diff: SummaryDiff }) {
   const fileComponent = useFileComponent()
+  const sdk = useSDK()
   const view = normalize(props.diff)
+  const readFile = (path: string) =>
+    sdk()
+      .client.file.read({ path })
+      .then(
+        (result) => result.data,
+        (error) => {
+          console.debug("[session-turn] failed to read file", { path, error })
+          return undefined
+        },
+      )
 
   return (
     <div data-slot="session-turn-diff-view" data-scrollable>
-      <Dynamic component={fileComponent} mode="diff" virtualize={false} fileDiff={view.fileDiff} />
+      <Dynamic
+        component={fileComponent}
+        mode="diff"
+        virtualize={false}
+        fileDiff={view.fileDiff}
+        media={{
+          mode: "auto",
+          path: props.diff.file,
+          deleted: view.status === "deleted",
+          readFile: view.status === "deleted" ? undefined : readFile,
+        }}
+      />
     </div>
   )
 }

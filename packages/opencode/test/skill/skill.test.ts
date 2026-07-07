@@ -122,6 +122,32 @@ Instructions here.
     ),
   )
 
+  it.live("discovers skills from .flashcode/skills/ directory", () =>
+    provideTmpdirInstance(
+      (dir) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            Bun.write(
+              path.join(dir, ".flashcode", "skills", "flashcode-skill", "SKILL.md"),
+              `---
+name: flashcode-skill
+description: A FlashCode project skill.
+---
+
+# FlashCode Skill
+`,
+            ),
+          )
+
+          const skill = yield* Skill.Service
+          const item = (yield* skill.all()).find((candidate) => candidate.name === "flashcode-skill")
+          expect(item?.description).toBe("A FlashCode project skill.")
+          expect(item?.location).toContain(path.join(".flashcode", "skills", "flashcode-skill", "SKILL.md"))
+        }),
+      { git: true },
+    ),
+  )
+
   it.live("returns skill directories from Skill.dirs", () =>
     provideTmpdirInstance(
       (dir) =>

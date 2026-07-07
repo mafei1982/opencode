@@ -668,14 +668,16 @@ export const SettingsGeneral: Component = () => {
           </div>
         </SettingsRow>
 
-        <SettingsRow
-          title={language.t("settings.updates.row.check.title")}
-          description={language.t("settings.updates.row.check.description")}
-        >
-          <Button size="small" variant="secondary" disabled={!updater.action().run} onClick={updater.run}>
-            {language.t(updater.action().label)}
-          </Button>
-        </SettingsRow>
+        <Show when={platform.updater}>
+          <SettingsRow
+            title={language.t("settings.updates.row.check.title")}
+            description={language.t("settings.updates.row.check.description")}
+          >
+            <Button size="small" variant="secondary" disabled={!updater.action().run} onClick={updater.run}>
+              {language.t(updater.action().label)}
+            </Button>
+          </SettingsRow>
+        </Show>
       </SettingsList>
     </div>
   )

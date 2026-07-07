@@ -65,6 +65,42 @@ describe("RuntimeFlags", () => {
     }),
   )
 
+  it.effect("layer accepts FLASHCODE environment variable aliases", () =>
+    Effect.gen(function* () {
+      const flags = yield* readFlags.pipe(
+        Effect.provide(
+          fromConfig({
+            FLASHCODE_PURE: "true",
+            FLASHCODE_AUTO_SHARE: "true",
+            FLASHCODE_DISABLE_EXTERNAL_SKILLS: "true",
+            FLASHCODE_ENABLE_EXA: "true",
+            FLASHCODE_EXPERIMENTAL_PLAN_MODE: "true",
+            FLASHCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX: "4096",
+            FLASHCODE_CLIENT: "desktop",
+          }),
+        ),
+      )
+
+      expect(flags.pure).toBe(true)
+      expect(flags.autoShare).toBe(true)
+      expect(flags.disableExternalSkills).toBe(true)
+      expect(flags.enableExa).toBe(true)
+      expect(flags.experimentalPlanMode).toBe(true)
+      expect(flags.outputTokenMax).toBe(4096)
+      expect(flags.client).toBe("desktop")
+    }),
+  )
+
+  it.effect("OPENCODE environment variables take precedence over FLASHCODE aliases", () =>
+    Effect.gen(function* () {
+      const flags = yield* readFlags.pipe(
+        Effect.provide(fromConfig({ OPENCODE_PURE: "false", FLASHCODE_PURE: "true" })),
+      )
+
+      expect(flags.pure).toBe(false)
+    }),
+  )
+
   it.effect("layer parses OPENCODE_EXPERIMENTAL_LSP_TY", () =>
     Effect.gen(function* () {
       const flags = yield* readFlags.pipe(

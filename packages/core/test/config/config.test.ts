@@ -209,6 +209,68 @@ describe("Config", () => {
     ),
   )
 
+  it.live("loads flashcode JSON and JSONC files", () =>
+    Effect.acquireRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ).pipe(
+      Effect.flatMap((tmp) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            Promise.all([
+              fs.writeFile(path.join(tmp.path, "flashcode.json"), JSON.stringify({ $schema: "flashcode-json" })),
+              fs.writeFile(path.join(tmp.path, "flashcode.jsonc"), JSON.stringify({ $schema: "flashcode-jsonc" })),
+            ]),
+          )
+
+          return yield* Effect.gen(function* () {
+            const config = yield* Config.Service
+            const documents = (yield* config.entries()).filter((entry) => entry.type === "document")
+
+            expect(documents.map((document) => document.info.$schema)).toEqual(["flashcode-json", "flashcode-jsonc"])
+          }).pipe(Effect.provide(testLayer(tmp.path)))
+        }),
+      ),
+    ),
+  )
+
+  it.live("loads .flashcode after .opencode at the same project scope", () =>
+    Effect.acquireRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ).pipe(
+      Effect.flatMap((tmp) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(async () => {
+            await fs.mkdir(path.join(tmp.path, ".opencode"), { recursive: true })
+            await fs.mkdir(path.join(tmp.path, ".flashcode"), { recursive: true })
+            await fs.writeFile(
+              path.join(tmp.path, ".opencode", "opencode.json"),
+              JSON.stringify({ $schema: "opencode" }),
+            )
+            await fs.writeFile(
+              path.join(tmp.path, ".flashcode", "flashcode.json"),
+              JSON.stringify({ $schema: "flashcode" }),
+            )
+          })
+
+          return yield* Effect.gen(function* () {
+            const config = yield* Config.Service
+            const entries = yield* config.entries()
+
+            expect(entries.filter((entry) => entry.type === "document").map((entry) => entry.info.$schema)).toEqual([
+              "opencode",
+              "flashcode",
+            ])
+            expect(
+              entries.filter((entry) => entry.type === "directory").map((entry) => path.basename(entry.path)),
+            ).toEqual(["global", ".opencode", ".flashcode"])
+          }).pipe(Effect.provide(testLayer(tmp.path)))
+        }),
+      ),
+    ),
+  )
+
   it.live("does not load legacy config.json files", () =>
     Effect.acquireRelease(
       Effect.promise(() => tmpdir()),
