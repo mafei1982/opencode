@@ -333,7 +333,7 @@ export const dict = {
   "dialog.directory.readError": "无法读取此文件夹",
 
   "dialog.server.title": "服务器",
-  "dialog.server.description": "切换此应用连接的 FlashCode 服务器。",
+  "dialog.server.description": "切换此应用连接的 metaXtest 服务器。",
   "dialog.server.search.placeholder": "搜索服务器",
   "dialog.server.empty": "暂无服务器",
   "dialog.server.add.title": "添加服务器",
@@ -624,7 +624,7 @@ export const dict = {
   "sidebar.project.viewAllSessions": "查看全部会话",
   "sidebar.project.clearNotifications": "清除通知",
 
-  "app.name.desktop": "FlashCode Desktop",
+  "app.name.desktop": "metaXtest",
 
   "settings.section.desktop": "桌面",
   "settings.section.server": "服务器",
@@ -634,7 +634,7 @@ export const dict = {
 
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL 集成",
-  "settings.desktop.wsl.description": "在 Windows 的 WSL 环境中运行 FlashCode 服务器。",
+  "settings.desktop.wsl.description": "在 Windows 的 WSL 环境中运行 metaXtest 服务器。",
 
   "settings.general.section.appearance": "外观",
   "settings.general.section.notifications": "系统通知",
@@ -643,13 +643,13 @@ export const dict = {
   "settings.general.section.feed": "动态",
   "settings.general.section.display": "显示",
   "settings.general.row.language.title": "语言",
-  "settings.general.row.language.description": "更改 FlashCode 的显示语言",
+  "settings.general.row.language.description": "更改 metaXtest 的显示语言",
   "settings.general.row.appearance.title": "外观",
-  "settings.general.row.appearance.description": "自定义 FlashCode 在你的设备上的外观",
+  "settings.general.row.appearance.description": "自定义 metaXtest 在你的设备上的外观",
   "settings.general.row.colorScheme.title": "配色方案",
-  "settings.general.row.colorScheme.description": "选择 FlashCode 跟随系统、浅色或深色主题",
+  "settings.general.row.colorScheme.description": "选择 metaXtest 跟随系统、浅色或深色主题",
   "settings.general.row.theme.title": "主题",
-  "settings.general.row.theme.description": "自定义 FlashCode 的主题。",
+  "settings.general.row.theme.description": "自定义 metaXtest 的主题。",
   "settings.general.row.font.title": "代码字体",
   "settings.general.row.font.description": "自定义代码块使用的字体",
   "settings.general.row.terminalFont.title": "Terminal Font",
@@ -673,13 +673,13 @@ export const dict = {
   "settings.general.row.releaseNotes.description": "更新后显示“新功能”弹窗",
 
   "settings.updates.row.startup.title": "启动时检查更新",
-  "settings.updates.row.startup.description": "在 FlashCode 启动时自动检查更新",
+  "settings.updates.row.startup.description": "在 metaXtest 启动时自动检查更新",
   "settings.updates.row.check.title": "检查更新",
   "settings.updates.row.check.description": "手动检查更新并在有更新时安装",
   "settings.updates.action.checkNow": "立即检查",
   "settings.updates.action.checking": "正在检查...",
   "settings.updates.toast.latest.title": "已是最新版本",
-  "settings.updates.toast.latest.description": "你正在使用最新版本的 FlashCode。",
+  "settings.updates.toast.latest.description": "你正在使用最新版本的 metaXtest。",
 
   "sound.option.none": "无",
   "sound.option.alert01": "警报 01",

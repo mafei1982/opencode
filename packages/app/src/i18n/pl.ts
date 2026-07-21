@@ -555,7 +555,7 @@ export const dict = {
   "sidebar.project.recentSessions": "Ostatnie sesje",
   "sidebar.project.viewAllSessions": "Zobacz wszystkie sesje",
   "sidebar.project.clearNotifications": "Wyczyść powiadomienia",
-  "app.name.desktop": "FlashCode Desktop",
+  "app.name.desktop": "metaXtest",
   "settings.section.desktop": "Pulpit",
   "settings.section.server": "Serwer",
   "settings.tab.general": "Ogólne",

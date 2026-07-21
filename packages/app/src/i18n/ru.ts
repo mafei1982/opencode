@@ -620,7 +620,7 @@ export const dict = {
   "sidebar.project.viewAllSessions": "Посмотреть все сессии",
   "sidebar.project.clearNotifications": "Очистить уведомления",
 
-  "app.name.desktop": "FlashCode Desktop",
+  "app.name.desktop": "metaXtest",
   "settings.section.desktop": "Приложение",
   "settings.section.server": "Сервер",
   "settings.tab.general": "Основные",

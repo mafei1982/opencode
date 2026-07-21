@@ -550,7 +550,7 @@ export const dict = {
   "sidebar.project.recentSessions": "الجلسات الحديثة",
   "sidebar.project.viewAllSessions": "عرض جميع الجلسات",
   "sidebar.project.clearNotifications": "مسح الإشعارات",
-  "app.name.desktop": "FlashCode Desktop",
+  "app.name.desktop": "metaXtest",
   "settings.section.desktop": "سطح المكتب",
   "settings.section.server": "الخادم",
   "settings.tab.general": "عام",

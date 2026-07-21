@@ -625,7 +625,7 @@ export const dict = {
   "sidebar.project.viewAllSessions": "Tüm oturumları görüntüle",
   "sidebar.project.clearNotifications": "Bildirimleri temizle",
 
-  "app.name.desktop": "FlashCode Masaüstü",
+  "app.name.desktop": "metaXtest",
 
   "settings.section.desktop": "Masaüstü",
   "settings.section.server": "Sunucu",

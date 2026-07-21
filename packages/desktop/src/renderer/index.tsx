@@ -314,7 +314,7 @@ listenForDeepLinks()
 function LoadingSplash() {
   return (
     <div class="h-dvh w-screen flex flex-col items-center justify-center bg-background-base">
-      <Splash class="w-16 h-20 opacity-50 animate-pulse" />
+      <Splash class="w-40 h-12 opacity-50 animate-pulse" />
     </div>
   )
 }

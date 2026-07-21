@@ -46,9 +46,9 @@ import { migrate } from "./migrate"
 import { cleanupStoreFiles } from "./store-cleanup"
 
 const APP_NAMES: Record<string, string> = {
-  dev: "FlashCode Dev",
-  beta: "FlashCode Beta",
-  prod: "FlashCode",
+  dev: "metaXtest Dev",
+  beta: "metaXtest Beta",
+  prod: "metaXtest",
 }
 const APP_IDS: Record<string, string> = {
   dev: "com.flashcode.desktop.dev",
@@ -163,7 +163,7 @@ const main = Effect.gen(function* () {
     process.env.XDG_STATE_HOME = join(root, "state")
     return root
   })()
-  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "FlashCode Dev")
+  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "metaXtest Dev")
   app.setAppUserModelId(appId)
   app.setPath(
     "userData",

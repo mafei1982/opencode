@@ -90,7 +90,7 @@ const getBase = (appId: string): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "FlashCode",
+    name: "metaXtest",
     schemes: deepLinkSchemes,
   },
   win: {
@@ -131,7 +131,7 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "FlashCode Dev",
+        productName: "metaXtest Dev",
         rpm: { packageName: "flashcode-dev" },
       }
     }
@@ -139,8 +139,8 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "FlashCode Beta",
-        protocols: { name: "FlashCode Beta", schemes: deepLinkSchemes },
+        productName: "metaXtest Beta",
+        protocols: { name: "metaXtest Beta", schemes: deepLinkSchemes },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
         rpm: { packageName: "flashcode-beta" },
       }
@@ -149,8 +149,8 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "FlashCode",
-        protocols: { name: "FlashCode", schemes: deepLinkSchemes },
+        productName: "metaXtest",
+        protocols: { name: "metaXtest", schemes: deepLinkSchemes },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
         deb: { fpm: [legacyDesktopEntryFpm] },
         rpm: { packageName: "flashcode", fpm: [legacyDesktopEntryFpm] },

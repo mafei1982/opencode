@@ -615,7 +615,7 @@ export const dict = {
   "sidebar.project.viewAllSessions": "Vis alle sessioner",
   "sidebar.project.clearNotifications": "Ryd notifikationer",
 
-  "app.name.desktop": "FlashCode Desktop",
+  "app.name.desktop": "metaXtest",
   "settings.section.desktop": "Desktop",
   "settings.section.server": "Server",
   "settings.tab.general": "Generelt",
