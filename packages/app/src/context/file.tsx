@@ -52,6 +52,16 @@ function errorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+function stringifyLogValue(value: unknown) {
+  if (value === undefined) return undefined
+  if (typeof value === "string") return value
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
 export const { use: useFile, provider: FileProvider } = createSimpleContext({
   name: "File",
   gate: false,
@@ -68,6 +78,30 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const tabs = layout.tabs(() =>
       SessionStateKey.from(serverSDK().scope, SessionRouteKey.fromRoute(base64Encode(sdk().directory), params.id)),
     )
+    const logFileListFailure = (input: { dir: string; error: unknown; message: string }) => {
+      const details = {
+        scope: scope(),
+        requestedDir: input.dir,
+        isRoot: input.dir === "",
+        sessionID: params.id ?? null,
+        href: window.location.href,
+        errorType: input.error instanceof Error ? input.error.name : typeof input.error,
+        errorMessage: input.message,
+        errorStack: input.error instanceof Error ? input.error.stack : undefined,
+        errorCause: input.error instanceof Error ? stringifyLogValue(input.error.cause) : undefined,
+        errorRaw: input.error instanceof Error ? undefined : stringifyLogValue(input.error),
+      }
+      console.error("[file-tree] failed to list files", details)
+      void serverSDK().client.app
+        .log({
+          directory: scope(),
+          service: "app.file-tree",
+          level: "error",
+          message: "file list failed",
+          extra: details,
+        })
+        .catch(() => undefined)
+    }
 
     const inflight = new Map<string, Promise<void>>()
     const [dirtyFiles, setDirtyFiles] = createStore<Record<string, boolean>>({})
@@ -84,11 +118,12 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
         sdk()
           .client.file.list({ path: dir })
           .then((x) => x.data ?? []),
-      onError: (message) => {
+      onError: (input) => {
+        logFileListFailure(input)
         showToast({
           variant: "error",
           title: language.t("toast.file.listFailed.title"),
-          description: message,
+          description: input.message,
         })
       },
     })

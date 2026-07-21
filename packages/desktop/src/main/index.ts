@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import * as http from "node:http"
 import { createServer } from "node:net"
 import { homedir, tmpdir } from "node:os"
@@ -17,7 +17,7 @@ import { CHANNEL, ENABLE_LICENSE_CHECK } from "./constants"
 import { registerIpcHandlers, sendDeepLinks, sendMenuCommand } from "./ipc"
 import { forwardInitializationFailure } from "./initialization"
 import { exportDebugLogs, initCrashReporter, initLogging, startNetLog, write as writeLog } from "./logging"
-import { checkDesktopLicense, describeLicenseFailure, LICENSE_STATUS } from "./license"
+import { describeLicenseFailure, inspectDesktopLicense, LICENSE_STATUS } from "./license"
 import { getDesktopEnvConfig, loadBundledEnv } from "./llm-config"
 import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
@@ -68,6 +68,7 @@ let logger: ReturnType<typeof initLogging>
 let server: SidecarListener | null = null
 
 const pendingDeepLinks: string[] = []
+const LICENSE_DEBUG_SWITCH = "--license-debug"
 
 function migrateLegacyUserDataPath(target: string, legacy: string) {
   if (target === legacy || existsSync(target) || !existsSync(legacy)) return target
@@ -124,6 +125,13 @@ function ensureLoopbackNoProxy() {
 
   upsert("NO_PROXY")
   upsert("no_proxy")
+}
+
+function serializeForJson(value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString()
+  if (Array.isArray(value)) return value.map(serializeForJson)
+  if (!value || typeof value !== "object") return value
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, serializeForJson(entry)]))
 }
 
 const main = Effect.gen(function* () {
@@ -272,11 +280,20 @@ const main = Effect.gen(function* () {
   }
 
   const serverReady = Deferred.makeUnsafe<ServerReadyData, unknown>()
+  const shouldWriteLicenseDebug = process.argv.includes(LICENSE_DEBUG_SWITCH)
 
   yield* Effect.promise(() => app.whenReady())
 
   if (app.isPackaged && ENABLE_LICENSE_CHECK) {
-    const license = checkDesktopLicense({ exePath: app.getPath("exe") })
+    const license = inspectDesktopLicense({ exePath: app.getPath("exe") })
+    if (shouldWriteLicenseDebug) {
+      const debugPath = join(app.getPath("userData"), "license-debug.json")
+      writeFileSync(debugPath, JSON.stringify(serializeForJson(license), null, 2))
+      logger.log("license debug written", { path: debugPath, code: license.code })
+      dialog.showErrorBox("License Debug", `License diagnostics written to:\n${debugPath}\n\nResult code: ${license.code}`)
+      app.exit(license.code === LICENSE_STATUS.PASS ? 0 : 1)
+      return
+    }
     if (license.code !== LICENSE_STATUS.PASS) {
       logger.error("license check failed", license)
       dialog.showErrorBox("License Error", describeLicenseFailure(license))

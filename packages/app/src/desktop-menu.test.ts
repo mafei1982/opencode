@@ -7,7 +7,7 @@ describe("desktop menu", () => {
       (item) => item.type === "item" && item.label === "Export Logs...",
     )
 
-    expect(items).toHaveLength(2)
+    expect(items).toHaveLength(1)
     expect(items.every((item) => item.type === "item" && item.command === "logs.export" && !item.action)).toBe(true)
   })
 })

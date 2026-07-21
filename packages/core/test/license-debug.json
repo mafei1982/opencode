@@ -1,0 +1,32 @@
+{
+  "code": -5004,
+  "path": "C:\\dev\\flashcode\\license_Administrator.lic",
+  "actual": {
+    "platformCode": 11,
+    "nowNs": "1784260044787000000",
+    "machineId": "7d7b27a5-12ee-4583-b27a-8a53967fcc2b_ccs_machine_id",
+    "pxieSerial": "\"325EE82\"_ccs_pxie_serial",
+    "osDiskSize": "512105932800_bytes_OS_disk",
+    "rdmaMac": "4DFF3CFF2BFF1AFF_ccs_mac",
+    "machineIdHash": "ee12f5710571af38e4430e4fdb352328a3e77d8378d559fbead8cb3bedc45e43",
+    "pxieSerialHash": "6ff22b637a40af5b5df680e23790ba804077b11a8752c1e109a27abd475d54c6",
+    "osDiskSizeHash": "3fa68385bbddd6b84faa2e29deeb9a92ff05cef1cf9099b626445c1ad00650fb",
+    "rdmaMacHash": "52987c2281ec2cea8ccebcaccceba918374f611df156818bd960d7be96ce8599"
+  },
+  "license": {
+    "version": 2,
+    "platformCode": 11,
+    "expiresAtNs": "18446744073709551615",
+    "idHash": "18c6451938272b2e36d440ca5764d2bed5af017012a45c8aac62428a309c36bf",
+    "osDiskHash": "3fa68385bbddd6b84faa2e29deeb9a92ff05cef1cf9099b626445c1ad00650fb",
+    "rdmaMacHash": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "checks": {
+    "platform": true,
+    "notExpired": true,
+    "machineId": false,
+    "pxieSerial": false,
+    "osDisk": true,
+    "rdmaMac": null
+  }
+}

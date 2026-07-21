@@ -4,7 +4,15 @@ import * as fs from "node:fs/promises"
 import * as os from "node:os"
 import * as path from "node:path"
 
-import { checkDesktopLicense, getDefaultLicensePath, LICENSE_STATUS, type LicenseSnapshot } from "./license"
+import {
+  checkDesktopLicense,
+  decodeTextBuffer,
+  getDefaultLicensePath,
+  inspectDesktopLicense,
+  LICENSE_STATUS,
+  parseIniValue,
+  type LicenseSnapshot,
+} from "./license"
 
 const LICENSE_KEY = "`N!I@C#C$S%M^E&T*A(L)I_C=E-N+S,E.K<E>Y?"
 const LICENSE_HASH = createHash("sha256").update(LICENSE_KEY).digest()
@@ -88,5 +96,64 @@ describe("license", () => {
         path: licensePath,
       })
     })
+  })
+
+  test("inspects the license payload and actual machine snapshot", async () => {
+    await withTempDir(async (dir) => {
+      const licensePath = path.join(dir, "inspect.lic")
+      await fs.writeFile(licensePath, buildLicense(3))
+
+      expect(inspectDesktopLicense({ licensePath, snapshot })).toEqual({
+        code: LICENSE_STATUS.PASS,
+        path: licensePath,
+        actual: {
+          ...snapshot,
+          machineIdHash: sha256(snapshot.machineId).toString("hex"),
+          pxieSerialHash: sha256(snapshot.pxieSerial).toString("hex"),
+          osDiskSizeHash: sha256(snapshot.osDiskSize).toString("hex"),
+          rdmaMacHash: sha256(snapshot.rdmaMac).toString("hex"),
+        },
+        license: {
+          version: 3,
+          platformCode: snapshot.platformCode,
+          expiresAtNs: snapshot.nowNs + 60_000_000_000n,
+          idHash: sha256(snapshot.pxieSerial).toString("hex"),
+          osDiskHash: sha256(snapshot.osDiskSize).toString("hex"),
+          rdmaMacHash: sha256(snapshot.rdmaMac).toString("hex"),
+        },
+        checks: {
+          platform: true,
+          notExpired: true,
+          machineId: false,
+          pxieSerial: true,
+          osDisk: true,
+          rdmaMac: true,
+        },
+      })
+    })
+  })
+
+  test("parses UTF-16LE INI content used by PXIe serial files", () => {
+    const content = "[Chassis1Slot1]\r\nSerialNumber=325EE82\r\n"
+    const buffer = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(content, "utf16le")])
+
+    expect(parseIniValue(decodeTextBuffer(buffer), "Chassis1Slot1", "SerialNumber")).toBe("325EE82")
+  })
+
+  test("parses UTF-16BE INI content used by PXIe serial files", () => {
+    const content = "[Chassis1Slot1]\r\nSerialNumber=325EE82\r\n"
+    const littleEndian = Buffer.from(content, "utf16le")
+    const bigEndian = Buffer.concat([
+      Buffer.from([0xfe, 0xff]),
+      Buffer.from(Array.from({ length: littleEndian.length }, (_unused, index) => littleEndian[index ^ 1] ?? 0)),
+    ])
+
+    expect(parseIniValue(decodeTextBuffer(bigEndian), "Chassis1Slot1", "SerialNumber")).toBe("325EE82")
+  })
+
+  test("strips wrapping quotes from INI values", () => {
+    expect(parseIniValue('[Chassis1Slot1]\r\nSerialNumber="325EE82"\r\n', "Chassis1Slot1", "SerialNumber")).toBe(
+      "325EE82",
+    )
   })
 })

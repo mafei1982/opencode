@@ -1,32 +1,78 @@
 import { test, expect } from "bun:test"
+import { AsyncLocalStorage } from "async_hooks"
 import { mkdir, unlink } from "fs/promises"
 import path from "path"
 
-import { disposeAllInstances, tmpdir } from "../fixture/fixture"
+import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { ModelV2 } from "@opencode-ai/core/model"
+import { ModelsDev } from "@opencode-ai/core/models-dev"
+import { ProviderV2 } from "@opencode-ai/core/provider"
 import { Global } from "@opencode-ai/core/global"
-import { Instance } from "../../src/project/instance"
-import { WithInstance } from "../../src/project/with-instance"
+import { disposeAllInstances, provideTestInstance, tmpdir } from "../fixture/fixture"
+import { InstanceRef } from "../../src/effect/instance-ref"
+import type { InstanceContext } from "../../src/project/instance-context"
 import { Plugin } from "../../src/plugin/index"
-import { ModelsDev } from "@/provider/models"
 import { Provider } from "@/provider/provider"
-import { ProviderID, ModelID } from "../../src/provider/schema"
 import { Filesystem } from "@/util/filesystem"
 import { Env } from "../../src/env"
-import { Effect } from "effect"
-import { AppRuntime } from "../../src/effect/app-runtime"
-import { makeRuntime } from "../../src/effect/run-service"
+import { Cause, Effect, Exit, ManagedRuntime } from "effect"
+import { memoMap } from "@opencode-ai/core/effect/memo-map"
 import { testEffect } from "../lib/effect"
 
-const env = makeRuntime(Env.Service, Env.defaultLayer)
-const set = (k: string, v: string) => env.runSync((svc) => svc.set(k, v))
-const remove = (k: string) => env.runSync((svc) => svc.remove(k))
+type ProviderID = ProviderV2.ID
+type ModelID = ModelV2.ID
+
+const ProviderID = ProviderV2.ID
+const ModelID = ModelV2.ID
+const currentInstance = new AsyncLocalStorage<InstanceContext>()
+const withCurrentInstance = <A, E, R>(effect: Effect.Effect<A, E, R>) => {
+  const ctx = currentInstance.getStore()
+  if (!ctx) return effect
+  return effect.pipe(Effect.provideService(InstanceRef, ctx))
+}
+const runtime = ManagedRuntime.make(LayerNode.compile(LayerNode.group([Provider.node, Env.node, Plugin.node])), {
+  memoMap,
+})
+const set = (k: string, v: string) => {
+  runtime.runSync(
+    withCurrentInstance(
+      Effect.gen(function* () {
+        process.env[k] = v
+        yield* Env.use.set(k, v)
+      }),
+    ),
+  )
+}
+const WithInstance = {
+  provide: <A>(input: { directory: string; fn: () => A }) =>
+    provideTestInstance({
+      directory: input.directory,
+      fn: (ctx) =>
+        currentInstance.run(ctx, async () => {
+          const previous = { ...process.env }
+          try {
+            return await input.fn()
+          } finally {
+            for (const key of Object.keys(process.env)) {
+              if (!(key in previous)) delete process.env[key]
+            }
+            for (const [key, value] of Object.entries(previous)) {
+              if (value === undefined) delete process.env[key]
+              else process.env[key] = value
+            }
+          }
+        }),
+    }),
+}
 
 async function run<A, E>(fn: (provider: Provider.Interface) => Effect.Effect<A, E, never>) {
-  return AppRuntime.runPromise(
-    Effect.gen(function* () {
-      const provider = yield* Provider.Service
-      return yield* fn(provider)
-    }),
+  return runtime.runPromise(
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* fn(provider)
+      }),
+    ),
   )
 }
 
@@ -72,7 +118,7 @@ function paid(providers: Awaited<ReturnType<typeof list>>) {
   return Object.values(item.models).filter((model) => model.cost.input > 0).length
 }
 
-const it = testEffect(Provider.defaultLayer)
+const it = testEffect(LayerNode.compile(LayerNode.group([Provider.node, Env.node])))
 
 test("provider loaded from env variable", async () => {
   await using tmp = await tmpdir({
@@ -195,11 +241,11 @@ test("local_tcp provider is injected from env", async () => {
       directory: tmp.path,
       fn: async () => {
         const providers = await list()
-        expect(providers[ProviderID.local_tcp]).toBeDefined()
-        expect(providers[ProviderID.local_tcp].models[ModelID.make("default")]).toBeDefined()
-        expect(providers[ProviderID.local_tcp].models[ModelID.make("default")].api.npm).toBe("@opencode/local-tcp")
-        expect(providers[ProviderID.local_tcp].models[ModelID.make("default")].limit.context).toBe(65536)
-        expect(providers[ProviderID.local_tcp].options.sequences).toBe(2)
+        expect(providers[ProviderID.make("local_tcp")]).toBeDefined()
+        expect(providers[ProviderID.make("local_tcp")].models[ModelID.make("default")]).toBeDefined()
+        expect(providers[ProviderID.make("local_tcp")].models[ModelID.make("default")].api.npm).toBe("@opencode/local-tcp")
+        expect(providers[ProviderID.make("local_tcp")].models[ModelID.make("default")].limit.context).toBe(65536)
+        expect(providers[ProviderID.make("local_tcp")].options.sequences).toBe(2)
       },
     })
   } finally {
@@ -232,7 +278,7 @@ test("local_tcp mode auto-restricts enabled providers", async () => {
       directory: tmp.path,
       fn: async () => {
         const providers = await list()
-        expect(providers[ProviderID.local_tcp]).toBeDefined()
+        expect(providers[ProviderID.make("local_tcp")]).toBeDefined()
         expect(providers[ProviderID.openai]).toBeUndefined()
       },
     })
@@ -265,7 +311,7 @@ test("local_tcp mode keeps non-local providers when explicitly re-enabled", asyn
       directory: tmp.path,
       fn: async () => {
         const providers = await list()
-        expect(providers[ProviderID.local_tcp]).toBeDefined()
+        expect(providers[ProviderID.make("local_tcp")]).toBeDefined()
         expect(providers[ProviderID.openai]).toBeDefined()
         expect(Object.keys(providers[ProviderID.openai].models).length).toBeGreaterThan(0)
       },
@@ -1686,13 +1732,15 @@ test("ModelNotFoundError includes suggestions for typos", async () => {
     directory: tmp.path,
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
-      try {
-        await getModel(ProviderID.anthropic, ModelID.make("claude-sonet-4")) // typo: sonet instead of sonnet
-        expect(true).toBe(false) // Should not reach here
-      } catch (e: any) {
-        expect(e.data.suggestions).toBeDefined()
-        expect(e.data.suggestions.length).toBeGreaterThan(0)
-      }
+      const exit = await run((provider) =>
+        provider.getModel(ProviderID.anthropic, ModelID.make("claude-sonet-4")).pipe(Effect.exit),
+      )
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (!Exit.isFailure(exit)) return
+      const error = Cause.squash(exit.cause)
+      expect(Provider.ModelNotFoundError.isInstance(error)).toBe(true)
+      if (!Provider.ModelNotFoundError.isInstance(error)) return
+      expect((error.suggestions ?? []).length).toBeGreaterThan(0)
     },
   })
 })
@@ -1712,13 +1760,15 @@ test("ModelNotFoundError for provider includes suggestions", async () => {
     directory: tmp.path,
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
-      try {
-        await getModel(ProviderID.make("antropic"), ModelID.make("claude-sonnet-4")) // typo: antropic
-        expect(true).toBe(false) // Should not reach here
-      } catch (e: any) {
-        expect(e.data.suggestions).toBeDefined()
-        expect(e.data.suggestions).toContain("anthropic")
-      }
+      const exit = await run((provider) =>
+        provider.getModel(ProviderID.make("antropic"), ModelID.make("claude-sonnet-4")).pipe(Effect.exit),
+      )
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (!Exit.isFailure(exit)) return
+      const error = Cause.squash(exit.cause)
+      expect(Provider.ModelNotFoundError.isInstance(error)).toBe(true)
+      if (!Provider.ModelNotFoundError.isInstance(error)) return
+      expect(error.suggestions ?? []).toContain("anthropic")
     },
   })
 })
@@ -2544,13 +2594,15 @@ test("plugin config providers persist after instance dispose", async () => {
   const first = await WithInstance.provide({
     directory: tmp.path,
     fn: async () =>
-      AppRuntime.runPromise(
-        Effect.gen(function* () {
-          const plugin = yield* Plugin.Service
-          const provider = yield* Provider.Service
-          yield* plugin.init()
-          return yield* provider.list()
-        }),
+      runtime.runPromise(
+        withCurrentInstance(
+          Effect.gen(function* () {
+            const plugin = yield* Plugin.Service
+            const provider = yield* Provider.Service
+            yield* plugin.init()
+            return yield* provider.list()
+          }),
+        ),
       ),
   })
   expect(first[ProviderID.make("demo")]).toBeDefined()

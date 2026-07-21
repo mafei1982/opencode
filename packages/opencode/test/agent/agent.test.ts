@@ -1,6 +1,7 @@
 import { afterEach, expect } from "bun:test"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { Cause, Effect, Exit, Layer } from "effect"
+import * as Option from "effect/Option"
 import path from "path"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
@@ -23,6 +24,16 @@ const agentLayer = (flags: Partial<RuntimeFlags.Info> = {}) =>
   )
 
 const it = testEffect(agentLayer())
+const itEmbeddedDesktop = testEffect(
+  agentLayer({ embeddedConfigDir: Option.some("/embedded"), toolsDir: Option.some("/embedded/tools") }),
+)
+const itShowDefaultAgentsEmbedded = testEffect(
+  agentLayer({
+    embeddedConfigDir: Option.some("/embedded"),
+    toolsDir: Option.some("/embedded/tools"),
+    showDefaultAgents: Option.some(true),
+  }),
+)
 
 // Helper to evaluate permission for a tool with wildcard pattern
 function evalPerm(agent: Agent.Info | undefined, permission: string): PermissionV1.Action | undefined {
@@ -427,6 +438,56 @@ it.instance(
         },
         agent_b: {
           description: "Agent B",
+          mode: "primary",
+        },
+      },
+    },
+  },
+)
+
+itEmbeddedDesktop.instance(
+  "embedded config with tools hides default build and plan agents by default",
+  () =>
+    Effect.gen(function* () {
+      const build = yield* load((svc) => svc.get("build"))
+      const plan = yield* load((svc) => svc.get("plan"))
+      const visible = (yield* load((svc) => svc.list()))
+        .filter((agent) => agent.mode !== "subagent" && agent.hidden !== true)
+        .map((agent) => agent.name)
+
+      expect(build?.hidden).toBe(true)
+      expect(plan?.hidden).toBe(true)
+      expect(visible).toContain("custom")
+      expect(visible).not.toContain("build")
+      expect(visible).not.toContain("plan")
+    }),
+  {
+    config: {
+      agent: {
+        custom: {
+          description: "Custom primary agent",
+          mode: "primary",
+        },
+      },
+    },
+  },
+)
+
+itShowDefaultAgentsEmbedded.instance(
+  "showDefaultAgents flag keeps build and plan visible for embedded config",
+  () =>
+    Effect.gen(function* () {
+      const build = yield* load((svc) => svc.get("build"))
+      const plan = yield* load((svc) => svc.get("plan"))
+
+      expect(build?.hidden).not.toBe(true)
+      expect(plan?.hidden).not.toBe(true)
+    }),
+  {
+    config: {
+      agent: {
+        custom: {
+          description: "Custom primary agent",
           mode: "primary",
         },
       },

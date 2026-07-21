@@ -44,6 +44,35 @@ export type LicenseCheckResult = {
   path: string
 }
 
+export type LicensePayload = {
+  version: number
+  platformCode: number
+  expiresAtNs: bigint
+  idHash: string
+  osDiskHash: string
+  rdmaMacHash: string
+}
+
+export type LicenseSnapshotDebug = LicenseSnapshot & {
+  machineIdHash: string
+  pxieSerialHash: string
+  osDiskSizeHash: string
+  rdmaMacHash: string
+}
+
+export type LicenseInspectionResult = LicenseCheckResult & {
+  actual: LicenseSnapshotDebug
+  license?: LicensePayload
+  checks?: {
+    platform: boolean
+    notExpired: boolean
+    machineId: boolean
+    pxieSerial: boolean
+    osDisk: boolean | null
+    rdmaMac: boolean | null
+  }
+}
+
 export function getDefaultLicensePath(options: Pick<LicenseCheckOptions, "exePath" | "username"> = {}) {
   return path.join(path.dirname(options.exePath ?? process.execPath), `license_${options.username ?? getUsername()}.lic`)
 }
@@ -77,6 +106,38 @@ export function checkDesktopLicense(options: LicenseCheckOptions = {}): LicenseC
   }
 
   return { code: LICENSE_STATUS.PASS, path: licensePath }
+}
+
+export function inspectDesktopLicense(options: LicenseCheckOptions = {}): LicenseInspectionResult {
+  const licensePath = options.licensePath ?? getDefaultLicensePath(options)
+  const actual = getLicenseSnapshotDebug(options.snapshot)
+  const encrypted = readBinaryFile(licensePath)
+  if (!encrypted) return { code: LICENSE_STATUS.CORRUPT, path: licensePath, actual }
+
+  const decrypted = decryptLicense(encrypted)
+  if (!decrypted || decrypted.length !== LICENSE_PAYLOAD_SIZE) {
+    return { code: LICENSE_STATUS.CORRUPT, path: licensePath, actual }
+  }
+
+  const license = parseLicensePayload(decrypted)
+  if (!license) {
+    return { code: LICENSE_STATUS.UNKNOWN_VER, path: licensePath, actual }
+  }
+
+  return {
+    code: checkDesktopLicense(options).code,
+    path: licensePath,
+    actual,
+    license,
+    checks: {
+      platform: actual.platformCode === license.platformCode,
+      notExpired: actual.nowNs <= license.expiresAtNs,
+      machineId: actual.machineIdHash === license.idHash,
+      pxieSerial: actual.pxieSerialHash === license.idHash,
+      osDisk: license.version >= 2 ? actual.osDiskSizeHash === license.osDiskHash : null,
+      rdmaMac: license.version >= 3 ? actual.rdmaMacHash === license.rdmaMacHash : null,
+    },
+  }
 }
 
 export function describeLicenseFailure(result: LicenseCheckResult) {
@@ -208,6 +269,43 @@ function sha256(value: string) {
   return createHash("sha256").update(value).digest()
 }
 
+function sha256Hex(value: string) {
+  return sha256(value).toString("hex")
+}
+
+function getLicenseSnapshotDebug(snapshot?: Partial<LicenseSnapshot>): LicenseSnapshotDebug {
+  const current = {
+    platformCode: snapshot?.platformCode ?? getPlatformCode(),
+    nowNs: snapshot?.nowNs ?? getCurrentTimeNs(),
+    machineId: snapshot?.machineId ?? getMachineId(),
+    pxieSerial: snapshot?.pxieSerial ?? getPXIeSerial(),
+    osDiskSize: snapshot?.osDiskSize ?? getOSDiskSize(),
+    rdmaMac: snapshot?.rdmaMac ?? getRdmaMac(),
+  }
+
+  return {
+    ...current,
+    machineIdHash: sha256Hex(current.machineId),
+    pxieSerialHash: sha256Hex(current.pxieSerial),
+    osDiskSizeHash: sha256Hex(current.osDiskSize),
+    rdmaMacHash: sha256Hex(current.rdmaMac),
+  }
+}
+
+function parseLicensePayload(decrypted: Buffer) {
+  const version = decrypted.readUInt8(0)
+  if (version < 1 || version > 3) return null
+
+  return {
+    version,
+    platformCode: decrypted.readUInt8(1),
+    expiresAtNs: decrypted.readBigUInt64LE(2),
+    idHash: decrypted.subarray(10, 42).toString("hex"),
+    osDiskHash: decrypted.subarray(42, 74).toString("hex"),
+    rdmaMacHash: decrypted.subarray(74, 106).toString("hex"),
+  } satisfies LicensePayload
+}
+
 function getMachineId() {
   if (process.platform === "win32") {
     const result = spawnSync("reg", ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"], {
@@ -232,7 +330,7 @@ function getMachineId() {
 
 function getPXIeSerial() {
   if (process.platform === "win32") {
-    const serial = readIniValue("C:\\Windows\\pxiesys.ini", "Chassis1Slot1", "SerialNumber")
+    const serial = readIniValue("C:\\Windows\\pxiesys.ini", "Chassis1Slot1", "SerialNumber", true)
     return serial ? `${serial}_ccs_pxie_serial` : ""
   }
 
@@ -244,12 +342,16 @@ function getPXIeSerial() {
   return ""
 }
 
-function readIniValue(filePath: string, section: string, key: string) {
-  const content = readTextFile(filePath)
+function readIniValue(filePath: string, section: string, key: string, preserveWindowsEncoding = false) {
+  const content = preserveWindowsEncoding ? readTextFilePreservingEncoding(filePath) : readTextFile(filePath)
   if (!content) return ""
 
+  return parseIniValue(content, section, key)
+}
+
+export function parseIniValue(content: string, section: string, key: string) {
   let inSection = false
-  for (const rawLine of content.split(/\r?\n/)) {
+  for (const rawLine of content.split(/\r?\n/u)) {
     const line = rawLine.trim()
     if (line === `[${section}]`) {
       inSection = true
@@ -264,10 +366,79 @@ function readIniValue(filePath: string, section: string, key: string) {
     const split = line.indexOf("=")
     if (split === -1) continue
     if (line.slice(0, split).trim() !== key) continue
-    return line.slice(split + 1).trim()
+    return normalizeIniValue(line.slice(split + 1).trim())
   }
 
   return ""
+}
+
+function normalizeIniValue(value: string) {
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).trim()
+  }
+
+  if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).trim()
+  }
+
+  return value
+}
+
+function readTextFilePreservingEncoding(filePath: string) {
+  if (!existsSync(filePath)) return null
+
+  try {
+    return decodeTextBuffer(readFileSync(filePath))
+  } catch {
+    return null
+  }
+}
+
+export function decodeTextBuffer(buffer: Buffer) {
+  if (buffer.length === 0) return ""
+  if (hasUtf16LittleEndianBom(buffer)) return buffer.subarray(2).toString("utf16le")
+  if (hasUtf16BigEndianBom(buffer)) return swapUtf16ByteOrder(buffer.subarray(2)).toString("utf16le")
+  if (looksLikeUtf16LittleEndian(buffer)) return buffer.toString("utf16le")
+  if (looksLikeUtf16BigEndian(buffer)) return swapUtf16ByteOrder(buffer).toString("utf16le")
+  return buffer.toString("utf8")
+}
+
+function hasUtf16LittleEndianBom(buffer: Buffer) {
+  return buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe
+}
+
+function hasUtf16BigEndianBom(buffer: Buffer) {
+  return buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff
+}
+
+function looksLikeUtf16LittleEndian(buffer: Buffer) {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 128))
+  const evenNullBytes = countNullBytes(sample, 0)
+  const oddNullBytes = countNullBytes(sample, 1)
+  return oddNullBytes >= sample.length / 4 && evenNullBytes <= sample.length / 16
+}
+
+function looksLikeUtf16BigEndian(buffer: Buffer) {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 128))
+  const evenNullBytes = countNullBytes(sample, 0)
+  const oddNullBytes = countNullBytes(sample, 1)
+  return evenNullBytes >= sample.length / 4 && oddNullBytes <= sample.length / 16
+}
+
+function countNullBytes(buffer: Buffer, offset: 0 | 1) {
+  return Array.from({ length: Math.ceil((buffer.length - offset) / 2) }, (_unused, index) => offset + index * 2)
+    .filter((index) => index < buffer.length && buffer[index] === 0)
+    .length
+}
+
+function swapUtf16ByteOrder(buffer: Buffer) {
+  const swapped = Buffer.from(buffer)
+  for (let index = 0; index < swapped.length - 1; index += 2) {
+    const value = swapped[index]
+    swapped[index] = swapped[index + 1] ?? 0
+    swapped[index + 1] = value ?? 0
+  }
+  return swapped
 }
 
 function readFirstLine(filePath: string) {

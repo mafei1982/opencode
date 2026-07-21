@@ -5,7 +5,7 @@ import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Location } from "@opencode-ai/core/location"
 import { AbsolutePath, RelativePath } from "@opencode-ai/core/schema"
-import { Effect, Layer, Option } from "effect"
+import { Cause, Effect, Layer, Option } from "effect"
 import ignore from "ignore"
 import path from "path"
 import { cp } from "node:fs/promises"
@@ -71,6 +71,13 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
           const fs = yield* FileSystem.Service
           const raw = yield* FSUtil.Service
           const location = yield* Location.Service
+          const request = {
+            instanceDirectory: directory,
+            locationDirectory: location.directory,
+            projectDirectory: location.project.directory,
+            requestedPath: ctx.query.path,
+            resolvedPath: path.resolve(location.directory, ctx.query.path || "."),
+          }
           const ignored = ignore()
           const gitignore = yield* raw
             .readFileString(path.join(location.project.directory, ".gitignore"))
@@ -80,16 +87,26 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
             .readFileString(path.join(location.project.directory, ".ignore"))
             .pipe(Effect.catch(() => Effect.succeed("")))
           if (ignorefile) ignored.add(ignorefile)
-          return (yield* fs.list({ path: RelativePath.make(ctx.query.path) })).map((item) => ({
-            name: path.basename(item.path),
-            path: item.path,
-            absolute: path.resolve(location.directory, item.path),
-            type: item.type,
-            ignored: ignored.ignores(
-              path.relative(location.project.directory, path.resolve(location.directory, item.path)) +
-                (item.type === "directory" ? "/" : ""),
+          return yield* fs.list({ path: RelativePath.make(ctx.query.path) }).pipe(
+            Effect.map((items) =>
+              items.map((item) => ({
+                name: path.basename(item.path),
+                path: item.path,
+                absolute: path.resolve(location.directory, item.path),
+                type: item.type,
+                ignored: ignored.ignores(
+                  path.relative(location.project.directory, path.resolve(location.directory, item.path)) +
+                    (item.type === "directory" ? "/" : ""),
+                ),
+              })),
             ),
-          }))
+            Effect.catchCause((cause) =>
+              Effect.logError("file list failed", {
+                ...request,
+                cause: Cause.pretty(cause),
+              }).pipe(Effect.flatMap(() => Effect.failCause(cause))),
+            ),
+          )
         }),
       )
     })

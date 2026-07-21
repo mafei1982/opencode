@@ -4,6 +4,8 @@ import { ConfigService } from "@/effect/config-service"
 const alias = (name: string) => name.replace(/^OPENCODE_/, "FLASHCODE_")
 const boolean = (name: string) => Config.boolean(name).pipe(Config.orElse(() => Config.boolean(alias(name))))
 const bool = (name: string) => boolean(name).pipe(Config.withDefault(false))
+const stringOption = (name: string) =>
+  Config.string(name).pipe(Config.orElse(() => Config.string(alias(name))), Config.option)
 const positiveInteger = (name: string) =>
   Config.number(name).pipe(
     Config.orElse(() => Config.number(alias(name))),
@@ -52,6 +54,12 @@ export class Service extends ConfigService.Service<Service>()("@opencode/Runtime
   experimentalEventSystem: enabledByExperimental("OPENCODE_EXPERIMENTAL_EVENT_SYSTEM"),
   experimentalWorkspaces: enabledByExperimental("OPENCODE_EXPERIMENTAL_WORKSPACES"),
   experimentalIconDiscovery: enabledByExperimental("OPENCODE_EXPERIMENTAL_ICON_DISCOVERY"),
+  embeddedConfigDir: stringOption("OPENCODE_EMBEDDED_CONFIG_DIR"),
+  toolsDir: Config.string("FLASHCODE_TOOLS_DIR").pipe(
+    Config.orElse(() => Config.string("NI_CIC_TOOLS_DIR")),
+    Config.option,
+  ),
+  showDefaultAgents: boolean("OPENCODE_SHOW_DEFAULT_AGENTS").pipe(Config.option),
   outputTokenMax: positiveInteger("OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX"),
   bashDefaultTimeoutMs: positiveInteger("OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS"),
   experimentalNativeLlm: bool("OPENCODE_EXPERIMENTAL_NATIVE_LLM"),

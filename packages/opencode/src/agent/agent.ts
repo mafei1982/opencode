@@ -22,6 +22,7 @@ import { Plugin } from "@/plugin"
 import { Skill } from "../skill"
 import { Effect, Context, Layer, Schema } from "effect"
 import { InstanceState } from "@/effect/instance-state"
+import { RuntimeFlags } from "@/effect/runtime-flags"
 import * as Option from "effect/Option"
 import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { AbsolutePath, type DeepMutable } from "@opencode-ai/core/schema"
@@ -94,6 +95,7 @@ const layer = Layer.effect(
     const skill = yield* Skill.Service
     const provider = yield* Provider.Service
     const locations = yield* LocationServiceMap.Service
+    const flags = yield* RuntimeFlags.Service
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("Agent.state")(function* (ctx) {
@@ -293,6 +295,19 @@ const layer = Layer.effect(
           item.permission = Permission.merge(item.permission, Permission.fromConfig(value.permission ?? {}))
         }
 
+        const shouldHideDefaultAgents = (() => {
+          if (Option.isSome(flags.showDefaultAgents)) return !flags.showDefaultAgents.value
+
+          if (!Option.isSome(flags.embeddedConfigDir) || !Option.isSome(flags.toolsDir)) return false
+
+          return Object.values(agents).some((agent) => !agent.native && agent.mode !== "subagent" && agent.hidden !== true)
+        })()
+
+        if (shouldHideDefaultAgents) {
+          if (agents.build?.native) agents.build.hidden = true
+          if (agents.plan?.native) agents.plan.hidden = true
+        }
+
         // Ensure Truncate.GLOB is allowed unless explicitly configured
         for (const name in agents) {
           const agent = agents[name]
@@ -447,7 +462,7 @@ const locationServiceMapNode = LayerNode.make({
 export const node = LayerNode.make({
   service: Service,
   layer: layer,
-  deps: [Config.node, Auth.node, Plugin.node, Skill.node, Provider.node, locationServiceMapNode],
+  deps: [Config.node, Auth.node, Plugin.node, Skill.node, Provider.node, RuntimeFlags.node, locationServiceMapNode],
 })
 
 export * as Agent from "./agent"

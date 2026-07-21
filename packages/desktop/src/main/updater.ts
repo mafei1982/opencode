@@ -68,14 +68,14 @@ export async function showUpdaterDialog(controller: ReturnType<typeof setupAutoU
   }
   if (state.status === "up-to-date") {
     if (!alertOnFail) return
-    await dialog.showMessageBox({ type: "info", message: "You're up to date.", title: "No Updates" })
+    await dialog.showMessageBox({ type: "info", message: "FlashCode is up to date.", title: "No Updates" })
     return
   }
   if (state.status !== "ready") return
 
   const response = await dialog.showMessageBox({
     type: "info",
-    message: `Update ${state.version} downloaded. Restart now?`,
+    message: `FlashCode ${state.version} downloaded. Restart now?`,
     title: "Update Ready",
     buttons: ["Restart", "Later"],
     defaultId: 0,

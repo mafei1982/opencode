@@ -298,7 +298,11 @@ function NewAppLayout(props: ParentProps<{ serverScoped?: JSX.Element }>) {
 function DraftServerScopedProviders(props: ParentProps<{ directory?: () => string | undefined }>) {
   return (
     <PermissionProvider directory={props.directory}>
-      <ModelsProvider directory={props.directory}>{props.children}</ModelsProvider>
+      {/* `/new-session` can render outside the top-level new shell in prod, so it
+          needs its own layout scope for FileProvider/PromptInput. */}
+      <LayoutProvider>
+        <ModelsProvider directory={props.directory}>{props.children}</ModelsProvider>
+      </LayoutProvider>
     </PermissionProvider>
   )
 }
