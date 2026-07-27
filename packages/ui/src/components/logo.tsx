@@ -1,20 +1,17 @@
 import { type ComponentProps } from "solid-js"
 import metaXtestLogo from "../assets/images/metaxtest-logo.png"
+import metaXtestMark from "../assets/images/metaxtest-mark.png"
 
 export const Mark = (props: { class?: string }) => {
   return (
     <img
-      src={metaXtestLogo}
+      src={metaXtestMark}
       alt=""
       aria-hidden="true"
       draggable={false}
       data-component="logo-mark"
       class={props.class}
-      style={{
-        "aspect-ratio": "1 / 1",
-        "object-fit": "cover",
-        "object-position": "54% center",
-      }}
+      style={{ "object-fit": "contain" }}
     />
   )
 }

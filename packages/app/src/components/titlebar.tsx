@@ -10,6 +10,7 @@ import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
+import { Logo } from "@opencode-ai/ui/logo"
 
 import { LayoutRoute, useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
@@ -651,7 +652,9 @@ export function Titlebar(props: { update?: TitlebarUpdate }) {
                         </Tooltip>
                       </div>
                     </Show>
-                    <div id="opencode-titlebar-left" class="flex items-center gap-3 min-w-0 px-2" />
+                    <div id="opencode-titlebar-left" class="flex items-center gap-3 min-w-0 px-2">
+                      <Logo class="h-5 w-auto max-w-32 shrink-0 select-none opacity-85" />
+                    </div>
                     <ChannelIndicator />
                   </div>
                 </div>
